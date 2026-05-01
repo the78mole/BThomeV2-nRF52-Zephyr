@@ -1,0 +1,34 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * bthome_full_node overlay for nRF52840-DK
+ *
+ * Hardware assumptions:
+ *   I2C IMU  : MPU-6050 breakout @ 0x68 on Arduino-I2C header
+ *              (SDA = P0.26 / Arduino A4, SCL = P0.27 / Arduino A5)
+ *   PIR GPIO : Signal pin → P1.01 (Arduino D0), power via 3.3 V header
+ */
+
+/* ── MPU-6050 on the Arduino-compatible I2C bus (i2c0) ─────────────────── */
+&arduino_i2c {
+	mpu6050: mpu6050@68 {
+		compatible = "invensense,mpu6050";
+		reg = <0x68>;
+		status = "okay";
+	};
+};
+
+/* ── PIR sensor GPIO ────────────────────────────────────────────────────── */
+/ {
+	pir_inputs: pir_inputs {
+		compatible = "gpio-keys";
+		pir0: pir_0 {
+			gpios = <&gpio1 1 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+			label = "PIR Sensor";
+		};
+	};
+
+	aliases {
+		imu       = &mpu6050;
+		pir-sensor = &pir0;
+	};
+};

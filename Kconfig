@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: MIT
+# BThomeV2 nRF52 Zephyr module root Kconfig
+
+rsource "lib/bthome_v2/Kconfig"

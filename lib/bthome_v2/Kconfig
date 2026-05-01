@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+# lib/bthome_v2/Kconfig
+
+config BTHOME_V2
+	bool "BThome V2 BLE advertising library"
+	depends on BT
+	help
+	  Enable the BThome V2 library for encoding sensor data into the
+	  BThome V2 format (UUID 0xFCD2) and advertising it over BLE.
+
+	  The library provides a statically-allocated encoder context,
+	  helper functions for all standard BThome V2 object types, and a
+	  Zephyr bt_data helper for direct use with bt_le_adv_start().
+
+	  Specification: https://bthome.io/format/
