@@ -101,7 +101,7 @@ echo ">>> [4/4] Python-Abhängigkeiten via uv pip install ..."
 # west ist bereits in der venv (Dockerfile); hier nur NCS-spezifische Requirements.
 uv pip install \
     -r "${WEST_WORKSPACE}/zephyr/scripts/requirements.txt" \
-    -r "${WEST_WORKSPACE}/sdk-nrf/scripts/requirements.txt" \
+    -r "${WEST_WORKSPACE}/nrf/scripts/requirements.txt" \
     -r "${WEST_WORKSPACE}/bootloader/mcuboot/scripts/requirements.txt"
 
 echo ""
