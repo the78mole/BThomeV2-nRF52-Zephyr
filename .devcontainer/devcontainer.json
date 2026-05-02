@@ -14,6 +14,30 @@
   },
 
   // -----------------------------------------------------------------------
+  // Devcontainer-Features
+  //
+  // common-utils: erstellt non-root user 'vscode' (UID/GID 1000), richtet
+  // ZSH + Oh-My-ZSH ein und sorgt für sudo-Zugang.
+  // username/userUid/userGid explizit auf 1000 gesetzt, damit die UID mit
+  // dem Host-Benutzer übereinstimmt und Bind-Mounts ohne Berechtigungs-
+  // probleme funktionieren.
+  // -----------------------------------------------------------------------
+  "features": {
+    "ghcr.io/the78mole/features/common-utils:2": {
+      "username": "vscode",
+      "userUid": "1000",
+      "userGid": "1000",
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "ohMyZshTheme": "fino",
+      "installOhMyZsh": true
+    }
+  },
+
+  // VS Code und alle Terminals laufen als non-root user 'vscode'
+  "remoteUser": "vscode",
+
+  // -----------------------------------------------------------------------
   // Workspace-Mounts
   //
   // Das Projekt wird als Bind-Mount unter /workspaces/BThomeV2-nRF52-Zephyr
@@ -26,7 +50,9 @@
 
   "mounts": [
     // Named volume: cached NCS west workspace (nrf, zephyr, modules, …)
-    "source=ncs-west-workspace,target=/workspaces,type=volume,consistency=cached"
+    "source=ncs-west-workspace,target=/workspaces,type=volume,consistency=cached",
+    // Git-Konfiguration vom Host einbinden (user.name, user.email, Aliases, …)
+    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached,readonly"
   ],
 
   // -----------------------------------------------------------------------

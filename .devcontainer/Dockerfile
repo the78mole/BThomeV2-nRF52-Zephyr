@@ -51,11 +51,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ---------------------------------------------------------------------------
 # uv installieren (Astral – schneller Python-Paketmanager)
+# Systemweit nach /usr/local/bin, damit der non-root user (vscode, UID 1000)
+# uv ohne PATH-Anpassung nutzen kann.
 # https://docs.astral.sh/uv/getting-started/installation/
 # ---------------------------------------------------------------------------
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-
-ENV PATH="/root/.local/bin:$PATH"
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.local/bin/uv  /usr/local/bin/uv \
+    && mv /root/.local/bin/uvx /usr/local/bin/uvx \
+    && rm -rf /root/.local
 
 
 
@@ -98,7 +101,23 @@ ENV ZEPHYR_TOOLCHAIN_VARIANT=zephyr
 
 # ---------------------------------------------------------------------------
 # Sicherheit: gemountete Verzeichnisse immer als git-sicher einstufen
+# --system schreibt nach /etc/gitconfig – gilt für alle Benutzer im Container
 # ---------------------------------------------------------------------------
-RUN git config --global safe.directory '*'
+RUN git config --system safe.directory '*'
 
+# ---------------------------------------------------------------------------
+# Berechtigungen für den non-root user (vscode, UID 1000)
+#
+# common-utils erstellt im devcontainer-Build einen Benutzer 'vscode' mit
+# UID/GID 1000. Damit dieser die virtuelle Python-Umgebung beschreiben
+# (west pip-Abhängigkeiten) und in /workspaces arbeiten kann, wird hier
+# die Eigentümerschaft gesetzt.
+#
+# Die Toolchain unter /opt/zephyr-sdk-* wird nur gelesen → kein chown nötig,
+# da alle Binaries world-executable sind (setup.sh -c registriert CMake
+# system-weit unter /usr/share/cmake).
+# ---------------------------------------------------------------------------
+RUN chown -R 1000:1000 /opt/ncs
+
+RUN mkdir -p /workspaces && chown 1000:1000 /workspaces
 WORKDIR /workspaces
