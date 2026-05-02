@@ -57,20 +57,21 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ENV PATH="/root/.local/bin:$PATH"
 
-# Tool-Binaries systemweit in /usr/local/bin ablegen,
-# damit sie für alle Nutzer (auch non-root via sudo) erreichbar sind.
-ENV UV_TOOL_BIN_DIR=/usr/local/bin
 
-# ---------------------------------------------------------------------------
-# west CLI via uv tool install
-# ---------------------------------------------------------------------------
-RUN uv tool install west
 
 # ---------------------------------------------------------------------------
 # Virtuelle Python-Umgebung für NCS-Build-Skripte
 # (cmake/Zephyr-Skripte nutzen VIRTUAL_ENV automatisch)
 # ---------------------------------------------------------------------------
 RUN uv venv /opt/ncs/venv
+
+# ---------------------------------------------------------------------------
+# west direkt in die venv installieren:
+#   - west CLI erreichbar über /opt/ncs/venv/bin/west (liegt im PATH)
+#   - west Python-APIs aus der venv importierbar (nötig für NCS-Build-Skripte)
+#   - uv tool install west entfällt (erzeugt isolierte Umgebung ohne venv-Zugriff)
+# ---------------------------------------------------------------------------
+RUN uv pip install --python /opt/ncs/venv west
 
 ENV VIRTUAL_ENV=/opt/ncs/venv
 ENV PATH="/opt/ncs/venv/bin:$PATH"

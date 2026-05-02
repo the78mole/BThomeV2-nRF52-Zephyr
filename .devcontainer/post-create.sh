@@ -57,13 +57,12 @@ west zephyr-export
 # -----------------------------------------------------------------------------
 # 4. Python-Abhängigkeiten in die virtuelle Umgebung installieren
 #    uv pip install respektiert VIRTUAL_ENV (/opt/ncs/venv).
-#    west selbst ist bereits via `uv tool install west` als CLI verfügbar;
-#    hier wird es zusätzlich in die venv installiert, damit NCS-Build-Skripte
-#    west-Python-APIs direkt importieren können.
+#    west ist im Dockerfile bereits in die venv installiert; die West-Python-APIs
+#    sind damit direkt importierbar und der CLI-Befehl über /opt/ncs/venv/bin verfügbar.
 # -----------------------------------------------------------------------------
 echo ">>> [4/4] Python-Abhängigkeiten via uv pip install ..."
+# west ist bereits in der venv (Dockerfile); hier nur NCS-spezifische Requirements.
 uv pip install \
-    west \
     -r "${WEST_WORKSPACE}/zephyr/scripts/requirements.txt" \
     -r "${WEST_WORKSPACE}/nrf/scripts/requirements.txt" \
     -r "${WEST_WORKSPACE}/bootloader/mcuboot/scripts/requirements.txt"
