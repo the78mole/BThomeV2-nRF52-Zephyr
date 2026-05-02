@@ -65,9 +65,23 @@ fi
 # 2. NCS-Quellcode herunterladen
 #    Erstmalig ca. 3–5 GB; mit Named Volume wird dieser Schritt
 #    bei Container-Neustarts deutlich schneller (nur Diff-Updates).
+#
+#    Hintergrund: Die gemountete Host-.gitconfig enthält oft einen
+#    plattformspezifischen credential.helper (manager-core, osxkeychain …),
+#    der im Container nicht vorhanden ist.  Git fällt dann auf interaktive
+#    Eingabe zurück und der Schritt hängt.
+#    Lösung: credential.helper zurücksetzen und gh-CLI als Helper nutzen
+#    (gh auth setup-git liest GITHUB_TOKEN, das im Devcontainer verfügbar ist).
 # -----------------------------------------------------------------------------
 echo ">>> [2/4] west update (NCS v2.6.0 + Zephyr + MCUboot) ..."
 echo "    Hinweis: Erster Download kann 5–15 Minuten dauern."
+
+# Plattformspezifischen Credential-Helper des Hosts deaktivieren.
+# ~/.gitconfig ist als read-only Bind-Mount eingehängt → system-weite Konfiguration nutzen.
+sudo git config --system credential.helper ""
+# GitHub CLI als Credential-Helper einrichten (nutzt GITHUB_TOKEN).
+gh auth setup-git 2>/dev/null || true
+
 cd "${WEST_WORKSPACE}"
 west update
 

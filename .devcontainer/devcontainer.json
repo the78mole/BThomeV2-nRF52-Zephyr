@@ -30,12 +30,28 @@
       "installZsh": true,
       "configureZshAsDefaultShell": true,
       "ohMyZshTheme": "fino",
-      "installOhMyZsh": true
-    }
+      "installOhMyZsh": true,
+      "addGroups": "plugdev,dialout"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
   // VS Code und alle Terminals laufen als non-root user 'vscode'
   "remoteUser": "vscode",
+
+  // -----------------------------------------------------------------------
+  // Gerätezugriff (J-Link / nRF-Targets über USB)
+  //
+  // --privileged  gibt dem Container vollen Gerätezugriff (nötig für
+  //               J-Link, nRF-USB-Bootloader, OpenOCD usw.)
+  // /dev → /dev   bindet das gesamte Host-/dev-Verzeichnis ein, sodass
+  //               neu angesteckte Geräte ohne Container-Neustart sichtbar
+  //               sind.
+  // -----------------------------------------------------------------------
+  "privileged": true,
+  "runArgs": [
+    "--volume=/dev:/dev"
+  ],
 
   // -----------------------------------------------------------------------
   // Workspace-Mounts
@@ -66,7 +82,10 @@
     "ZEPHYR_SDK_INSTALL_DIR": "/opt/zephyr-sdk-0.16.5",
     "ZEPHYR_TOOLCHAIN_VARIANT": "zephyr",
     // Wird von west zephyr-export gesetzt; hier als Fallback für IDE-Tools
-    "ZEPHYR_BASE": "/workspaces/zephyr"
+    "ZEPHYR_BASE": "/workspaces/zephyr",
+    // Verhindert, dass git bei fehlendem Credential-Helper interaktiv
+    // nach Username/Passwort fragt und den Build zum Hängen bringt.
+    "GIT_TERMINAL_PROMPT": "0"
   },
 
   // -----------------------------------------------------------------------
@@ -81,7 +100,8 @@
         "mcu-debug.peripheral-viewer",
         "paulopalaoro.cortex-debug-ai",
         "twxs.cmake",
-        "marus25.cortex-debug"
+        "marus25.cortex-debug",
+        "mcu-debug.debug-tracker-vscode"
       ],
       "settings": {
         // nRF Connect: West-Workspace-Root (nach west update verfügbar)

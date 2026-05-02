@@ -1,5 +1,10 @@
 {
   "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "1.1.0",
+      "resolved": "ghcr.io/devcontainers/features/github-cli@sha256:d22f50b70ed75339b4eed1ba9ecde3a1791f90e88d37936517e3bace0bbad671",
+      "integrity": "sha256:d22f50b70ed75339b4eed1ba9ecde3a1791f90e88d37936517e3bace0bbad671"
+    },
     "ghcr.io/the78mole/features/common-utils:2": {
       "version": "2.5.9",
       "resolved": "ghcr.io/the78mole/features/common-utils@sha256:ed35bcbbd05a0c8c79e3b61c7ca1b9c70d0bd094ca18ff5f20ae09b106ed217d",
