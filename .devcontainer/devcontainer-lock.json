@@ -1,0 +1,9 @@
+{
+  "features": {
+    "ghcr.io/the78mole/features/common-utils:2": {
+      "version": "2.5.9",
+      "resolved": "ghcr.io/the78mole/features/common-utils@sha256:ed35bcbbd05a0c8c79e3b61c7ca1b9c70d0bd094ca18ff5f20ae09b106ed217d",
+      "integrity": "sha256:ed35bcbbd05a0c8c79e3b61c7ca1b9c70d0bd094ca18ff5f20ae09b106ed217d"
+    }
+  }
+}

@@ -9,6 +9,20 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG ZEPHYR_SDK_VERSION=0.16.5
 
 # ---------------------------------------------------------------------------
+# Ubuntu 26.04 ships with a built-in 'ubuntu' user at UID/GID 1000.
+# The common-utils devcontainer feature also creates a user at UID/GID 1000
+# ('vscode'). Remove the existing ubuntu user/group so UID/GID 1000 is free
+# for the feature to use.  Note: GID 65534 is already taken by 'nogroup' in
+# Ubuntu 26.04, so groupmod -g 65534 would fail – deletion is safer.
+# ---------------------------------------------------------------------------
+RUN if getent passwd 1000 >/dev/null 2>&1; then \
+        userdel "$(getent passwd 1000 | cut -d: -f1)"; \
+    fi \
+    && if getent group 1000 >/dev/null 2>&1; then \
+        groupdel "$(getent group 1000 | cut -d: -f1)"; \
+    fi
+
+# ---------------------------------------------------------------------------
 # Locale
 # ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \

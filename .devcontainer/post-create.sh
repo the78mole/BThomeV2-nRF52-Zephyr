@@ -27,6 +27,29 @@ echo "  VIRTUAL_ENV        : ${VIRTUAL_ENV:-/opt/ncs/venv}"
 echo ""
 
 # -----------------------------------------------------------------------------
+# 0. Berechtigungen des Named-Volume-Inhalts auf den aktuellen Benutzer setzen.
+#    Das Named Volume wird von Docker initial als root:root angelegt; der
+#    postCreateCommand läuft jedoch als non-root (vscode).  Wir chownen alle
+#    Einträge im West-Workspace – ausgenommen den Bind-Mount des Projekts selbst,
+#    da dieser auf dem Host-Dateisystem liegt.
+# -----------------------------------------------------------------------------
+CURRENT_UID="$(id -u)"
+CURRENT_GID="$(id -g)"
+PROJECT_BASENAME="$(basename "${PROJECT_DIR}")"
+
+if [ "$(stat -c '%u' "${WEST_WORKSPACE}")" != "${CURRENT_UID}" ]; then
+    echo ">>> [0/4] Berechtigungen des West-Workspace korrigieren (root → $(id -un)) ..."
+    sudo chown "${CURRENT_UID}:${CURRENT_GID}" "${WEST_WORKSPACE}"
+    find "${WEST_WORKSPACE}" -maxdepth 1 -mindepth 1 \
+        ! -name "${PROJECT_BASENAME}" \
+        -exec sudo chown -R "${CURRENT_UID}:${CURRENT_GID}" {} +
+    echo "          Berechtigungen gesetzt."
+else
+    echo ">>> [0/4] Berechtigungen des West-Workspace bereits korrekt – übersprungen."
+fi
+echo ""
+
+# -----------------------------------------------------------------------------
 # 1. West-Workspace initialisieren (lokaler Manifest-Modus)
 #    Überspringen, falls bereits vorhanden (z. B. bei Container-Neustart
 #    mit bestehendem Named Volume).
@@ -64,7 +87,7 @@ echo ">>> [4/4] Python-Abhängigkeiten via uv pip install ..."
 # west ist bereits in der venv (Dockerfile); hier nur NCS-spezifische Requirements.
 uv pip install \
     -r "${WEST_WORKSPACE}/zephyr/scripts/requirements.txt" \
-    -r "${WEST_WORKSPACE}/nrf/scripts/requirements.txt" \
+    -r "${WEST_WORKSPACE}/sdk-nrf/scripts/requirements.txt" \
     -r "${WEST_WORKSPACE}/bootloader/mcuboot/scripts/requirements.txt"
 
 echo ""

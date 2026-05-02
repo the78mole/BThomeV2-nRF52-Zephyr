@@ -52,7 +52,9 @@
     // Named volume: cached NCS west workspace (nrf, zephyr, modules, …)
     "source=ncs-west-workspace,target=/workspaces,type=volume,consistency=cached",
     // Git-Konfiguration vom Host einbinden (user.name, user.email, Aliases, …)
-    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached,readonly"
+    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached,readonly",
+    // SSH-Schlüssel vom Host einbinden (für git@github.com und andere SSH-Remotes)
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached,readonly"
   ],
 
   // -----------------------------------------------------------------------
@@ -73,14 +75,12 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        // Offizielles nRF Connect Extension Pack
-        // (nrf-connect, nrf-terminal, nrf-devicetree, nrf-kconfig)
         "nordic-semiconductor.nrf-connect-extension-pack",
-        // C/C++ Sprachunterstützung & IntelliSense
         "ms-vscode.cpptools-extension-pack",
-        // CMake-Unterstützung
         "ms-vscode.cmake-tools",
-        // Cortex-Debug (JTAG/SWD Debugging mit J-Link, OpenOCD usw.)
+        "mcu-debug.peripheral-viewer",
+        "paulopalaoro.cortex-debug-ai",
+        "twxs.cmake",
         "marus25.cortex-debug"
       ],
       "settings": {
