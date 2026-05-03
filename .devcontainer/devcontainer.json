@@ -33,7 +33,13 @@
       "installOhMyZsh": true,
       "addGroups": "plugdev,dialout"
     },
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // nRF Command Line Tools (nrfjprog) + J-Link
+    // https://github.com/the78mole/devcontainer-features/tree/main/src/nrf-tools
+    "ghcr.io/the78mole/devcontainer-features/nrf-tools:1": {
+      "nrfCliVersion": "10.24.2",
+      "acceptSeggerEula": true
+    }
   },
 
   // VS Code und alle Terminals laufen als non-root user 'vscode'
@@ -70,7 +76,9 @@
     // Git-Konfiguration vom Host einbinden (user.name, user.email, Aliases, …)
     "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached,readonly",
     // SSH-Schlüssel vom Host einbinden (für git@github.com und andere SSH-Remotes)
-    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached,readonly"
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached,readonly",
+    // D-Bus System-Bus vom Host einbinden (benötigt für BlueZ / BLE-Tools wie bthome-logger)
+    "source=/run/dbus/system_bus_socket,target=/run/dbus/system_bus_socket,type=bind,consistency=cached"
   ],
 
   // -----------------------------------------------------------------------

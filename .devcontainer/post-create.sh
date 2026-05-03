@@ -104,6 +104,12 @@ uv pip install \
     -r "${WEST_WORKSPACE}/nrf/scripts/requirements.txt" \
     -r "${WEST_WORKSPACE}/bootloader/mcuboot/scripts/requirements.txt"
 
+# -----------------------------------------------------------------------------
+# 5. BThome Logger als uv-Tool installieren (BLE-Sniffer für BThome v2)
+# -----------------------------------------------------------------------------
+echo ">>> [5/5] bthome-logger via uv tool install ..."
+uv tool install bthome-logger
+
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║   Setup abgeschlossen!  Viel Erfolg beim Entwickeln.         ║"

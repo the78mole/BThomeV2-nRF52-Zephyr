@@ -59,6 +59,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libmagic1 \
         python3 \
         python3-dev \
+        python-is-python3 \
         ca-certificates \
         sudo \
     && rm -rf /var/lib/apt/lists/*

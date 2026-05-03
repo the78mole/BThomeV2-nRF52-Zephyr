@@ -20,7 +20,7 @@
  *   west build -b seeed_xiao_ble/nrf52840 samples/bthome_full_node
  *
  * Verify with bthome-logger:
- *   uv tool install bthome-logger && bthome-logger -f "BThome-Sensor"
+ *   uv tool install bthome-logger && bthome-logger -f "MAKE"
  */
 
 #include <zephyr/kernel.h>
@@ -47,8 +47,8 @@ static const struct bt_le_adv_param adv_param =
 /* ── BThome V2 context ───────────────────────────────────────────────────── */
 static struct bthome_v2_ctx bthome;
 
-/* ── Advertising data array (flags + service data) ───────────────────────── */
-static struct bt_data ad[2];
+/* ── Advertising data array (flags + complete name + service data) ─────────── */
+static struct bt_data ad[3];
 
 /* ── Packet counter (incremented each advertisement) ────────────────────── */
 static uint8_t pkt_id;
@@ -212,7 +212,7 @@ static void update_advertisement(void)
 		return;
 	}
 
-	ret = bthome_v2_get_bt_data(&bthome, &ad[1]);
+ret = bthome_v2_get_bt_data(&bthome, &ad[2]);
 	if (ret < 0) {
 		LOG_ERR("bthome_v2_get_bt_data failed: %d", ret);
 		return;
@@ -247,16 +247,20 @@ int main(void)
 	/* ── Initialise BThome V2 context ───────────────────────────────── */
 	bthome_v2_init(&bthome, false, false);
 
-	/* ── Build initial advertising data (flags AD) ──────────────────── */
+	/* ── Build initial advertising data (flags + name + service data) ─ */
 	ad[0] = (struct bt_data)
 		BT_DATA_BYTES(BT_DATA_FLAGS,
 			      BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR);
+	ad[1] = (struct bt_data)
+		BT_DATA(BT_DATA_NAME_COMPLETE,
+			CONFIG_BT_DEVICE_NAME,
+			sizeof(CONFIG_BT_DEVICE_NAME) - 1);
 
-	/* Populate ad[1] with an initial encode so we have valid data
+	/* Populate ad[2] with an initial encode so we have valid data
 	 * before calling bt_le_adv_start().                            */
 	bthome_v2_add_packet_id(&bthome, 0);
 	bthome_v2_encode(&bthome);
-	bthome_v2_get_bt_data(&bthome, &ad[1]);
+	bthome_v2_get_bt_data(&bthome, &ad[2]);
 	bthome_v2_clear(&bthome);
 
 	/* ── Enable Bluetooth ───────────────────────────────────────────── */
