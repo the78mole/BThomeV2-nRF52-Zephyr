@@ -59,7 +59,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libmagic1 \
         python3 \
         python3-dev \
-        python-is-python3 \
         ca-certificates \
         sudo \
     && rm -rf /var/lib/apt/lists/*
@@ -80,8 +79,12 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
 # ---------------------------------------------------------------------------
 # Virtuelle Python-Umgebung für NCS-Build-Skripte
 # (cmake/Zephyr-Skripte nutzen VIRTUAL_ENV automatisch)
+# uv lädt Python 3.12 nach UV_PYTHON_INSTALL_DIR herunter (statt /root/.local),
+# damit der non-root user (vscode) den Interpreter lesen und ausführen kann.
 # ---------------------------------------------------------------------------
-RUN uv venv /opt/ncs/venv
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+RUN uv venv /opt/ncs/venv --python 3.12 \
+    && chmod -R a+rX /opt/uv-python
 
 # ---------------------------------------------------------------------------
 # west direkt in die venv installieren:
