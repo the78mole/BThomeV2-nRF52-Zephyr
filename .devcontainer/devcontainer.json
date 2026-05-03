@@ -1,0 +1,202 @@
+{
+  // -----------------------------------------------------------------------
+  // nRF Connect SDK v2.6.0 – Devcontainer
+  // Basis-Image: ubuntu:26.04  |  Python-Verwaltung: uv
+  // -----------------------------------------------------------------------
+  "name": "nRF Connect SDK v2.6.0",
+
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      // Zephyr SDK Version – muss zu NCS v2.6.0 passen
+      "ZEPHYR_SDK_VERSION": "0.16.5"
+    }
+  },
+
+  // -----------------------------------------------------------------------
+  // Devcontainer-Features
+  //
+  // common-utils: erstellt non-root user 'vscode' (UID/GID 1000), richtet
+  // ZSH + Oh-My-ZSH ein und sorgt für sudo-Zugang.
+  // username/userUid/userGid explizit auf 1000 gesetzt, damit die UID mit
+  // dem Host-Benutzer übereinstimmt und Bind-Mounts ohne Berechtigungs-
+  // probleme funktionieren.
+  // -----------------------------------------------------------------------
+  "features": {
+    "ghcr.io/the78mole/features/common-utils:2": {
+      "username": "vscode",
+      "userUid": "1000",
+      "userGid": "1000",
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "ohMyZshTheme": "fino",
+      "installOhMyZsh": true,
+      "addGroups": "plugdev,dialout"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // nRF Command Line Tools (nrfjprog) + J-Link
+    // https://github.com/the78mole/devcontainer-features/tree/main/src/nrf-tools
+    "ghcr.io/the78mole/devcontainer-features/nrf-tools:1": {
+      "nrfCliVersion": "10.24.2",
+      "acceptSeggerEula": true
+    }
+  },
+
+  // VS Code und alle Terminals laufen als non-root user 'vscode'
+  "remoteUser": "vscode",
+
+  // -----------------------------------------------------------------------
+  // Gerätezugriff (J-Link / nRF-Targets über USB)
+  //
+  // --privileged  gibt dem Container vollen Gerätezugriff (nötig für
+  //               J-Link, nRF-USB-Bootloader, OpenOCD usw.)
+  // /dev → /dev   bindet das gesamte Host-/dev-Verzeichnis ein, sodass
+  //               neu angesteckte Geräte ohne Container-Neustart sichtbar
+  //               sind.
+  // -----------------------------------------------------------------------
+  "privileged": true,
+  "runArgs": [
+    "--volume=/dev:/dev"
+  ],
+
+  // -----------------------------------------------------------------------
+  // Workspace-Mounts
+  //
+  // Das Projekt wird als Bind-Mount unter /workspaces/BThomeV2-nRF52-Zephyr
+  // eingehangen. Ein benanntes Docker-Volume unter /workspaces cached den
+  // West-Workspace (NCS, Zephyr, MCUboot usw.) über Container-Neustarts
+  // hinaus – der erste Start dauert länger (~3–5 GB Download).
+  // -----------------------------------------------------------------------
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/BThomeV2-nRF52-Zephyr,type=bind,consistency=cached",
+  "workspaceFolder": "/workspaces/BThomeV2-nRF52-Zephyr",
+
+  "mounts": [
+    // Named volume: cached NCS west workspace (nrf, zephyr, modules, …)
+    "source=ncs-west-workspace,target=/workspaces,type=volume,consistency=cached",
+    // Git-Konfiguration vom Host einbinden (user.name, user.email, Aliases, …)
+    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached,readonly",
+    // SSH-Schlüssel vom Host einbinden (für git@github.com und andere SSH-Remotes)
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached,readonly",
+    // D-Bus System-Bus vom Host einbinden (benötigt für BlueZ / BLE-Tools wie bthome-logger)
+    "source=/run/dbus/system_bus_socket,target=/run/dbus/system_bus_socket,type=bind,consistency=cached"
+  ],
+
+  // -----------------------------------------------------------------------
+  // Umgebungsvariablen (werden zur Laufzeit gesetzt)
+  // -----------------------------------------------------------------------
+  "remoteEnv": {
+    "VIRTUAL_ENV": "/opt/ncs/venv",
+    "PATH": "/opt/ncs/venv/bin:/usr/local/bin:${containerEnv:PATH}",
+    "ZEPHYR_SDK_INSTALL_DIR": "/opt/zephyr-sdk-0.16.5",
+    "ZEPHYR_TOOLCHAIN_VARIANT": "zephyr",
+    // Wird von west zephyr-export gesetzt; hier als Fallback für IDE-Tools
+    "ZEPHYR_BASE": "/workspaces/zephyr",
+    // Verhindert, dass git bei fehlendem Credential-Helper interaktiv
+    // nach Username/Passwort fragt und den Build zum Hängen bringt.
+    "GIT_TERMINAL_PROMPT": "0"
+  },
+
+  // -----------------------------------------------------------------------
+  // VS Code Erweiterungen & Einstellungen
+  // -----------------------------------------------------------------------
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "nordic-semiconductor.nrf-connect-extension-pack",
+        "ms-vscode.cpptools-extension-pack",
+        "ms-vscode.cmake-tools",
+        "mcu-debug.peripheral-viewer",
+        "paulopalaoro.cortex-debug-ai",
+        "twxs.cmake",
+        "marus25.cortex-debug",
+        "mcu-debug.debug-tracker-vscode"
+      ],
+      "settings": {
+        // nRF Connect: West-Workspace-Root (nach west update verfügbar)
+        "nrf-connect.topdir": "/workspaces",
+        // CMake nicht automatisch beim Öffnen konfigurieren
+        // (west build wird direkt verwendet)
+        "cmake.configureOnOpen": false,
+        // Kconfig Python-Interpreter (nRF Connect Extension)
+        "kconfig.python": "/opt/ncs/venv/bin/python3",
+        // C/C++ Konfiguration
+        "C_Cpp.default.compilerPath": "/opt/zephyr-sdk-0.16.5/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc",
+
+        // ---------------------------------------------------------------
+        // Zephyr Brand Colors
+        // Palette aus dem offiziellen Zephyr-Logo-SVG:
+        //   Purple:     #7929d2  #9454db  #af7fe4
+        //   Charcoal:   #2d3136
+        //   Blue:       #0070c5  #00aeff
+        //   Light blue: #b1e4fa
+        // ---------------------------------------------------------------
+        "workbench.colorCustomizations": {
+          // Titelleiste
+          "titleBar.activeBackground":   "#2d3136",
+          "titleBar.activeForeground":   "#b1e4fa",
+          "titleBar.inactiveBackground": "#1e2226",
+          "titleBar.inactiveForeground": "#7098b8",
+          "titleBar.border":             "#7929d2",
+
+          // Statusleiste
+          "statusBar.background":              "#7929d2",
+          "statusBar.foreground":              "#ffffff",
+          "statusBar.debuggingBackground":     "#0070c5",
+          "statusBar.debuggingForeground":     "#ffffff",
+          "statusBar.noFolderBackground":      "#5c1fb8",
+          "statusBar.border":                  "#9454db",
+
+          // Activity Bar (linke Icon-Leiste)
+          "activityBar.background":            "#2d3136",
+          "activityBar.foreground":            "#b1e4fa",
+          "activityBar.inactiveForeground":    "#7098b8",
+          "activityBar.activeBorder":          "#7929d2",
+          "activityBar.activeBackground":      "#3d4248",
+          "activityBar.border":                "#1e2226",
+          "activityBarBadge.background":       "#00aeff",
+          "activityBarBadge.foreground":       "#ffffff",
+
+          // Side Bar
+          "sideBar.background":                "#252930",
+          "sideBar.foreground":                "#c8d8e8",
+          "sideBar.border":                    "#1e2226",
+          "sideBarTitle.foreground":           "#b1e4fa",
+          "sideBarSectionHeader.background":   "#2d3136",
+          "sideBarSectionHeader.foreground":   "#9454db",
+          "sideBarSectionHeader.border":       "#3d4248",
+
+          // Tabs
+          "tab.activeBackground":              "#2d3136",
+          "tab.activeForeground":              "#b1e4fa",
+          "tab.activeBorderTop":               "#7929d2",
+          "tab.inactiveBackground":            "#1e2226",
+          "tab.inactiveForeground":            "#7098b8",
+          "tab.border":                        "#1e2226",
+          "tab.hoverBackground":               "#3d4248",
+          "editorGroupHeader.tabsBackground":  "#1e2226",
+          "editorGroupHeader.tabsBorder":      "#1e2226",
+
+          // Panel (Terminal, Probleme, …)
+          "panel.background":                  "#1e2226",
+          "panel.border":                      "#7929d2",
+          "panelTitle.activeForeground":       "#b1e4fa",
+          "panelTitle.activeBorder":           "#7929d2",
+          "panelTitle.inactiveForeground":     "#7098b8",
+
+          // Badges & Highlights
+          "badge.background":                  "#0070c5",
+          "badge.foreground":                  "#ffffff",
+          "focusBorder":                       "#7929d2",
+          "selection.background":              "#7929d240"
+        }
+      }
+    }
+  },
+
+  // -----------------------------------------------------------------------
+  // Post-Create: West-Workspace initialisieren und NCS herunterladen.
+  // Wird nur beim ersten Erstellen des Containers ausgeführt.
+  // Dauer: 5–15 Minuten (abhängig von der Internetverbindung).
+  // -----------------------------------------------------------------------
+  "postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/post-create.sh ${containerWorkspaceFolder}"
+}

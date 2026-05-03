@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * Blinky overlay for Seeed XIAO nRF52840 (and Sense variant)
+ *
+ * The XIAO board file already defines the led0 alias pointing to the
+ * red LED (P0.26, active-low).  No changes required.
+ *
+ * Hardware:
+ *   LED0 (red) → P0.26 (active-low, on-board)
+ */

@@ -1,0 +1,5 @@
+name: bthome_v2_module
+
+build:
+  cmake: .
+  kconfig: Kconfig

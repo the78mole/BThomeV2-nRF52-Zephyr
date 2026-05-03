@@ -1,0 +1,14 @@
+manifest:
+  remotes:
+    - name: nrfconnect
+      url-base: https://github.com/nrfconnect
+
+  projects:
+    - name: nrf
+      remote: nrfconnect
+      repo-path: sdk-nrf
+      revision: v2.6.0
+      import: true
+
+  self:
+    path: bthomev2-nrf52-zephyr

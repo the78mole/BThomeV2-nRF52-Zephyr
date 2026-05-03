@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * bthome_full_node overlay for Seeed XIAO nRF52840 (and Sense variant)
+ *
+ * Hardware assumptions:
+ *   I2C IMU  : LSM6DS3 (LSM6DSL-compatible) @ 0x6A on i2c0
+ *              (SDA = P0.05, SCL = P0.04 — XIAO hardware I2C)
+ *   PIR GPIO : Signal pin → P0.29 (XIAO pin D3), active-high with pull-down
+ *
+ * Note: The LSM6DS3 is only present on the "Sense" variant of the XIAO.
+ *       On the plain XIAO nRF52840 (Plus), remove the lsm6dsl node and
+ *       disable CONFIG_LSM6DSL in the board .conf.
+ */
+
+/* ── LSM6DS3 on i2c0 ────────────────────────────────────────────────────── */
+&i2c0 {
+	status = "okay";
+
+	lsm6dsl: lsm6dsl@6a {
+		compatible = "st,lsm6dsl";
+		reg = <0x6a>;
+		irq-gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+};
+
+/* ── PIR sensor GPIO ────────────────────────────────────────────────────── */
+/ {
+	pir_inputs: pir_inputs {
+		compatible = "gpio-keys";
+		pir0: pir_0 {
+			gpios = <&gpio0 29 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+			label = "PIR Sensor";
+		};
+	};
+
+	aliases {
+		imu        = &lsm6dsl;
+		pir-sensor = &pir0;
+	};
+};

@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * Blinky overlay for nRF52840-DK
+ *
+ * No modifications needed — the DK board file already defines the
+ * led0 alias pointing to LED1 (P0.13, active-low).
+ * This overlay is intentionally empty but kept for completeness and
+ * to document the hardware assignment.
+ *
+ * Hardware:
+ *   LED0 → P0.13 (green, active-low, on-board)
+ */
