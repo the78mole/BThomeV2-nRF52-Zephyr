@@ -1,0 +1,67 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * bthome_full_node overlay for Seeed XIAO nRF52840 Sense
+ *
+ * The LSM6DS3TR-C on i2c0 is already defined in the board DTS
+ * (xiao_ble_sense.dts) — we only add the imu alias and the PIR GPIO.
+ *
+ *   IMU  : lsm6ds3tr_c @ 0x6A on i2c0 (P0.07=SDA, P0.27=SCL)
+ *          Power-enable: P1.08 (handled by board DTS regulator node)
+ *   PIR  : P0.29 (XIAO D3), active-high with pull-down
+ */
+
+/* ── PIR sensor GPIO ────────────────────────────────────────────────────── */
+/ {
+	pir_inputs: pir_inputs {
+		compatible = "gpio-keys";
+		pir0: pir_0 {
+			gpios = <&gpio0 29 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+			label = "PIR Sensor";
+		};
+	};
+
+        /* ── PPK2 active-indicator ─────────────────────────────────────────── */
+        /* P0.02 = D0 on the XIAO connector.  Drive HIGH when awake, LOW before
+         * k_sleep().  Connect to a digital input channel on the PPK2 to
+         * correlate current spikes with code execution phases. */
+        active_ind: active_indicator {
+                compatible = "gpio-leds";
+                active0: active_0 {
+                        gpios = <&gpio0 2 GPIO_ACTIVE_HIGH>;
+                        label = "Active Indicator";
+                };
+        };
+
+        aliases {
+                imu              = &lsm6ds3tr_c;
+                pir-sensor       = &pir0;
+                active-indicator = &active0;
+        };
+};
+
+/* ── Disable QSPI flash ──────────────────────────────────────────────────── */
+/* Same reason as xiao_ble.overlay — prevents HFINT drain from QSPI init. */
+&qspi {
+        status = "disabled";
+};
+
+/* ── Disable unused I2C1 (external connector) ─────────────────────────────── */
+/* See xiao_ble.overlay for explanation.  On the Sense, the IMU uses i2c0;
+ * i2c1 (P0.04/P0.05) is the external connector I2C and is never used. */
+&i2c1 {
+        status = "disabled";
+};
+
+/* ── Disable microphone power (P1.10) ───────────────────────────────────── */
+/* The MSM261D3526H1CPM PDM microphone is powered via P1.10 (active-high).
+ * The regulator-fixed node from the board DTS keeps P1.10 driven high after
+ * boot (regulator-boot-on).  Adding regulator-always-off here overrides
+ * that and prevents the mic from being powered — saves ~100 µA. */
+/ {
+        mic-vdd-off {
+                compatible = "regulator-fixed";
+                regulator-name = "MIC_PWR_OFF";
+                enable-gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
+                regulator-always-off;
+        };
+};

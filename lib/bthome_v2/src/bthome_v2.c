@@ -59,6 +59,7 @@ static int add_u8(struct bthome_v2_ctx *ctx, uint8_t obj_id, uint8_t val)
 }
 
 /** @brief Add a signed 8-bit measurement. */
+static int add_s8(struct bthome_v2_ctx *ctx, uint8_t obj_id, int8_t val) __attribute__((unused));
 static int add_s8(struct bthome_v2_ctx *ctx, uint8_t obj_id, int8_t val)
 {
 	return add_u8(ctx, obj_id, (uint8_t)val);

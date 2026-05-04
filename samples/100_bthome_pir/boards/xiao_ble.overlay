@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * BThome PIR overlay for Seeed XIAO nRF52840 (and Sense variant)
+ *
+ * PIR sensor signal pin → P0.02 (XIAO pin D0).
+ * Active-high with internal pull-down.
+ */
+/ {
+	pir_inputs: pir_inputs {
+		compatible = "gpio-keys";
+		pir0: pir_0 {
+			gpios = <&gpio0 2 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+			label = "PIR Sensor";
+		};
+	};
+
+	aliases {
+		pir-sensor = &pir0;
+	};
+};

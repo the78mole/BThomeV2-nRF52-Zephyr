@@ -1,0 +1,55 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * bthome_full_node overlay for Seeed XIAO nRF52840 (plain, no IMU)
+ *
+ * The plain xiao_ble has no LSM6DS3 — disable IMU and PIR alias only.
+ * Use BOARD=xiao_ble_sense for the Sense variant with IMU.
+ */
+
+/* ── PIR sensor GPIO ────────────────────────────────────────────────────── */
+/ {
+	pir_inputs: pir_inputs {
+		compatible = "gpio-keys";
+		pir0: pir_0 {
+			gpios = <&gpio0 29 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+			label = "PIR Sensor";
+		};
+	};
+
+	/* ── PPK2 active-indicator ─────────────────────────────────────────── */
+	/* P0.02 = D0 on the XIAO connector.  Drive HIGH when awake, LOW before
+	 * k_sleep().  Connect to a digital input channel on the PPK2 to
+	 * correlate current spikes with code execution phases. */
+	active_ind: active_indicator {
+		compatible = "gpio-leds";
+		active0: active_0 {
+			gpios = <&gpio0 2 GPIO_ACTIVE_HIGH>;
+			label = "Active Indicator";
+		};
+	};
+
+	aliases {
+		pir-sensor      = &pir0;
+		active-indicator = &active0;
+	};
+};
+
+/* ── Disable QSPI flash ──────────────────────────────────────────────────── */
+/* The P25Q16H flash is defined as okay in xiao_ble_common.dtsi.
+ * If no physical flash is present the driver still initialises the QSPI
+ * peripheral and holds the HFINT oscillator active via DMA-ready state.
+ * Disabling the node prevents the driver from probing and avoids the
+ * ~200 µA residual from the QSPI peripheral. */
+&qspi {
+	status = "disabled";
+};
+
+/* ── Disable unused I2C1 (external connector) ─────────────────────────────── */
+/* i2c1 (nordic,nrf-twi, P0.04/P0.05) is enabled in xiao_ble_common.dtsi but
+ * is not used by any sensor in this application.  The nrfx TWI driver calls
+ * nrfx_twi_enable() at init, which sets the TWI ENABLE register and holds
+ * a HFCLK (16 MHz) request.  This alone causes ~650 µA during sleep even
+ * after MPSL is uninitialized.  Disabling the node prevents initialization. */
+&i2c1 {
+	status = "disabled";
+};

@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * bthome_full_node overlay for Seeed XIAO nRF52840 Sense
+ *
+ * The LSM6DS3TR-C on i2c0 is already defined in the board DTS
+ * (xiao_ble_sense.dts) — we only add the imu alias and the PIR GPIO.
+ *
+ *   IMU  : lsm6ds3tr_c @ 0x6A on i2c0 (P0.07=SDA, P0.27=SCL)
+ *          Power-enable: P1.08 (handled by board DTS regulator node)
+ *   PIR  : P0.29 (XIAO D3), active-high with pull-down
+ */
+
+/* ── PIR sensor GPIO ────────────────────────────────────────────────────── */
+/ {
+	pir_inputs: pir_inputs {
+		compatible = "gpio-keys";
+		pir0: pir_0 {
+			gpios = <&gpio0 29 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+			label = "PIR Sensor";
+		};
+	};
+
+	aliases {
+		imu        = &lsm6ds3tr_c;
+		pir-sensor = &pir0;
+	};
+};

@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * BThome PIR overlay for nRF52840-DK
+ *
+ * PIR sensor signal pin → P0.12 (Button 1 / SW1 on the DK).
+ * The built-in button is active-low with an external pull-up on the board.
+ * Press the button to simulate a PIR trigger.
+ */
+/ {
+	pir_inputs: pir_inputs {
+		compatible = "gpio-keys";
+		pir0: pir_0 {
+			gpios = <&gpio0 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "PIR Sensor";
+		};
+	};
+
+	aliases {
+		pir-sensor = &pir0;
+	};
+};

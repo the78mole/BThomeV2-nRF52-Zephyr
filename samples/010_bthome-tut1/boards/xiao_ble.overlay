@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * bthome_full_node overlay for Seeed XIAO nRF52840 (plain, no IMU)
+ *
+ * The plain xiao_ble has no LSM6DS3 — disable IMU and PIR alias only.
+ * Use BOARD=xiao_ble_sense for the Sense variant with IMU.
+ */
+
+/* ── PIR sensor GPIO ────────────────────────────────────────────────────── */
+/ {
+	pir_inputs: pir_inputs {
+		compatible = "gpio-keys";
+		pir0: pir_0 {
+			gpios = <&gpio0 29 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+			label = "PIR Sensor";
+		};
+	};
+
+	aliases {
+		pir-sensor = &pir0;
+	};
+};

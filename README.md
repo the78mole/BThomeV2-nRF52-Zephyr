@@ -26,8 +26,8 @@ Reference Arduino library: <https://github.com/the78mole/bthomev2>
 │       └── bthome_v2.c             # Encoder (sorts by OBJ_ID, fills bt_data)
 │
 └── samples/
-    ├── blinky/                     # LED blink: 100 ms ON / 900 ms OFF
-    └── bthome_full_node/           # Die-temp + 6-axis IMU + PIR → BThome V2 ADV
+    ├── 000_blinky/                 # LED blink: 100 ms ON / 900 ms OFF
+    └── 010_bthome-tut1/            # Die-temp + 6-axis IMU + PIR → BThome V2 ADV
 ```
 
 ---
@@ -43,20 +43,29 @@ west init -l .
 west update
 ```
 
+## Samples
+
+| # | Verzeichnis | Beschreibung |
+|---|-------------|--------------|
+| 000 | [`samples/000_blinky`](samples/000_blinky) | Minimales Blinky: LED1 blinkt 100 ms / 900 ms — Smoke-Test für Toolchain und Flash-Workflow |
+| 010 | [`samples/010_bthome-tut1`](samples/010_bthome-tut1) | Vollständiger BThome-V2-Node: interne Die-Temperatur, 6-Achsen-IMU (MPU-6050 / LSM6DS3) und PIR-Bewegungssensor im BLE-Advertisement |
+| 020 | [`samples/020_bthome_tut2`](samples/020_bthome_tut2) | Erweiterung von 010 um Power-Management: Sensoren und BLE werden nur bei Bewegung aktiv, ansonsten Tiefschlaf |
+---
+
 ### Build & Flash
 
 ```bash
 # Blinky – nRF52840-DK
-west build -b nrf52840dk/nrf52840 samples/blinky && west flash
+west build -b nrf52840dk_nrf52840 samples/000_blinky && west flash
 
 # Blinky – Seeed XIAO nRF52840
-west build -b seeed_xiao_ble/nrf52840 samples/blinky && west flash
+west build -b seeed_xiao_ble_nrf52840 samples/000_blinky && west flash
 
 # Full BThome node – nRF52840-DK (MPU-6050 on Arduino I2C header)
-west build -b nrf52840dk/nrf52840 samples/bthome_full_node && west flash
+west build -b nrf52840dk_nrf52840 samples/010_bthome-tut1 && west flash
 
 # Full BThome node – Seeed XIAO nRF52840 Sense (LSM6DS3 built-in)
-west build -b seeed_xiao_ble/nrf52840 samples/bthome_full_node && west flash
+west build -b seeed_xiao_ble_nrf52840 samples/010_bthome-tut1 && west flash
 ```
 
 ### Verify BThome V2 Advertisements

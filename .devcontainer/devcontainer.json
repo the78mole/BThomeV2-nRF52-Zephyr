@@ -109,7 +109,8 @@
         "paulopalaoro.cortex-debug-ai",
         "twxs.cmake",
         "marus25.cortex-debug",
-        "mcu-debug.debug-tracker-vscode"
+        "mcu-debug.debug-tracker-vscode",
+        "bierner.markdown-mermaid"
       ],
       "settings": {
         // nRF Connect: West-Workspace-Root (nach west update verfügbar)
@@ -121,6 +122,11 @@
         "kconfig.python": "/opt/ncs/venv/bin/python3",
         // C/C++ Konfiguration
         "C_Cpp.default.compilerPath": "/opt/zephyr-sdk-0.16.5/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc",
+        // compile_commands.json aus dem west-Build – enthält alle Zephyr-Include-Pfade
+        // und Defines exakt so, wie der Compiler sie sieht (kein manuelles Pflegen nötig).
+        // Neu generieren: west build --pristine (oder inkrementell west build)
+        "C_Cpp.default.compileCommands": "/workspaces/build/compile_commands.json",
+        "C_Cpp.default.intelliSenseMode": "gcc-arm",
 
         // ---------------------------------------------------------------
         // Zephyr Brand Colors
