@@ -204,5 +204,5 @@
   // Wird nur beim ersten Erstellen des Containers ausgeführt.
   // Dauer: 5–15 Minuten (abhängig von der Internetverbindung).
   // -----------------------------------------------------------------------
-  "postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/post-create.sh ${containerWorkspaceFolder}"
+  "postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/postCreateCommand.sh ${containerWorkspaceFolder}"
 }
