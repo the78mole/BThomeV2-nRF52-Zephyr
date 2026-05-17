@@ -1,38 +1,53 @@
-# 010_bthome-tut1
+# 020_bthome_tut2
 
-Full BThome V2 sensor node — tutorial sample 1.
+Full BThome V2 sensor node — tutorial sample 2: **Power-Managed Node**.
 
-Demonstrates how to combine multiple sensor sources into a single
-**BThome V2** BLE advertisement using the `bthome_v2` Zephyr library.
-A new packet is broadcast every 10 seconds (non-connectable, undirected).
+Baut auf Tutorial 1 auf und ergänzt Zephyr Power Management:
 
-## Sensors
+- **Burst-Advertising**: Pro Zyklus wird das BLE-Radio für **3 s** aktiv
+  geschaltet, dann mit `bt_disable()` vollständig abgeschaltet (HFCLK frei).
+- **Deep Sleep**: Die verbleibenden **27 s** verbringt der nRF52840 im
+  „System ON / CPU asleep"-Zustand (~3–15 µA).
+- **Peripherie-Suspend**: I²C-Bus und IMU-Sensor werden zwischen den Messungen
+  per `pm_device_action_run()` suspendiert.
+- **PPK2-Indikator**: P0.02 (XIAO D0) wird HIGH/LOW getaktet, um Wach- und
+  Schlafphasen im PPK2 korrelieren zu können.
 
-| # | Sensor | Source | Always present |
+Das Gerät sendet alle **30 Sekunden** einen neuen BThome-Paket-Burst
+(non-connectable, undirected).
+
+## Sensoren
+
+| # | Sensor | Quelle | Immer vorhanden |
 |---|---|---|---|
-| 1 | Die temperature | nRF52840 internal (`TEMP_NRF5`) | ✓ |
-| 2 | Acceleration + gyroscope magnitude | MPU-6050 (DK) or LSM6DS3/LSM6DSL (XIAO Sense) via DT alias `imu` | Board-dependent |
-| 3 | PIR motion (binary) | GPIO, DT alias `pir-sensor` | Board-dependent |
+| 1 | Die-Temperatur | nRF52840 intern (`TEMP_NRF5`) | ✓ |
+| 2 | Beschleunigung + Gyroskop-Betrag | MPU-6050 (DK) oder LSM6DS3TR-C (XIAO Sense) via DT-Alias `imu` | Board-abhängig |
+| 3 | PIR-Bewegung (binär) | GPIO, DT-Alias `pir-sensor` | Board-abhängig |
 
-LED2 (`led1` alias) flashes for **50 ms** on every advertisement update as a
-visual heartbeat.
+LED2 (Alias `led1`) blinkt **50 ms** bei jeder Werteaktualisierung als
+visueller Heartbeat.
 
-## Supported boards
+## Unterstützte Boards
 
-| Board | `BOARD` value | IMU driver |
+| Board | `BOARD`-Wert | IMU-Treiber |
 |---|---|---|
-| nRF52840-DK | `nrf52840dk/nrf52840` | MPU-6050 (`CONFIG_MPU6050=y`) |
-| Seeed XIAO nRF52840 Sense | `seeed_xiao_ble/nrf52840` | LSM6DSL (`CONFIG_LSM6DSL=y`) |
+| nRF52840-DK | `nrf52840dk_nrf52840` | MPU-6050 (`CONFIG_MPU6050=y`) |
+| Seeed XIAO nRF52840 Sense | `xiao_ble_sense` | LSM6DSL (`CONFIG_LSM6DSL=y`) |
+| Seeed XIAO nRF52840 (plain) | `xiao_ble` | — (kein IMU) |
 
 ## Build & flash
 
 ```bash
 # nRF52840-DK
-west build -b nrf52840dk/nrf52840    samples/010_bthome-tut1
+west build -b nrf52840dk_nrf52840 samples/020_bthome_tut2
 west flash
 
 # Seeed XIAO nRF52840 Sense
-west build -b seeed_xiao_ble/nrf52840 samples/010_bthome-tut1
+west build -b xiao_ble_sense samples/020_bthome_tut2
+west flash
+
+# Seeed XIAO nRF52840 (plain, ohne IMU)
+west build -b xiao_ble samples/020_bthome_tut2
 west flash
 ```
 
@@ -40,38 +55,44 @@ west flash
 
 ```bash
 uv tool install bthome-logger
-bthome-logger -f "MAKE"
+bthome-logger -f "MAKE-020"
 ```
 
-## Files
+## Dateien
 
 ```
-010_bthome-tut1/
+020_bthome_tut2/
 ├── CMakeLists.txt
-├── prj.conf                        # Common Kconfig (BT, sensors, logging)
+├── prj.conf                        # Gemeinsames Kconfig (BT, Sensoren, PM)
 ├── src/
-│   ├── main.c                      # BLE advertising loop
+│   ├── main.c                      # BLE-Burst-Loop mit bt_enable/bt_disable
 │   └── sensors/
-│       ├── sensor_die_temp.h/.c    # Internal temperature
-│       ├── sensor_imu.h/.c         # IMU (conditional on HAS_IMU)
-│       └── sensor_pir.h/.c         # PIR GPIO (conditional on HAS_PIR)
+│       ├── sensor_die_temp.h/.c    # Interne Temperatur
+│       ├── sensor_imu.h/.c         # IMU (bedingt durch HAS_IMU)
+│       └── sensor_pir.h/.c         # PIR GPIO (bedingt durch HAS_PIR)
 └── boards/
-    ├── nrf52840dk_nrf52840.conf     # CONFIG_MPU6050=y
-    ├── nrf52840dk_nrf52840.overlay  # I²C + IMU + PIR node
-    ├── seeed_xiao_ble.conf          # CONFIG_LSM6DSL=y
-    └── seeed_xiao_ble.overlay       # I²C + IMU node
+    ├── nrf52840dk_nrf52840.conf     # CONFIG_MPU6050=y, SERIAL=n
+    ├── nrf52840dk_nrf52840.overlay  # I²C + IMU + PIR + PPK2-Indikator
+    ├── xiao_ble.conf                # LFRC, USB/SERIAL=n, BT_UNINIT_MPSL=y
+    ├── xiao_ble.overlay             # PIR + PPK2-Indikator (kein IMU)
+    ├── xiao_ble_sense.conf          # CONFIG_LSM6DSL=y, LFRC, USB/SERIAL=n
+    └── xiao_ble_sense.overlay       # IMU-Alias + PIR + PPK2-Indikator
 ```
 
 ## Key Kconfig options
 
-| Option | Purpose |
+| Option | Zweck |
 |---|---|
-| `CONFIG_BT=y` | Enable Bluetooth |
-| `CONFIG_BT_PERIPHERAL=y` | Peripheral / advertiser role |
-| `CONFIG_BTHOME_V2=y` | BThome V2 library |
-| `CONFIG_TEMP_NRF5=y` | nRF52 internal temperature driver |
-| `CONFIG_MPU6050=y` | IMU driver for nRF52840-DK |
-| `CONFIG_LSM6DSL=y` | IMU driver for XIAO Sense |
+| `CONFIG_BT=y` | Bluetooth aktivieren |
+| `CONFIG_BT_PERIPHERAL=y` | Peripheral / Advertiser-Rolle |
+| `CONFIG_BTHOME_V2=y` | BThome V2 Bibliothek |
+| `CONFIG_TEMP_NRF5=y` | nRF52 interne Temperaturtreiber |
+| `CONFIG_MPU6050=y` | IMU-Treiber für nRF52840-DK |
+| `CONFIG_LSM6DSL=y` | IMU-Treiber für XIAO Sense |
+| `CONFIG_PM_DEVICE=y` | Geräte-PM: suspend/resume via `pm_device_action_run()` |
+| `CONFIG_TICKLESS_KERNEL=y` | SysTick stoppt im Sleep (~300 µA gespart) |
+| `CONFIG_BT_UNINIT_MPSL_ON_DISABLE=y` | MPSL vollständig deinitialisieren bei `bt_disable()` → HFCLK frei |
+| `CONFIG_MPSL_DYNAMIC_INTERRUPTS=y` | Abhängigkeit von `BT_UNINIT_MPSL_ON_DISABLE` |
 
 ## Power-Architektur
 
