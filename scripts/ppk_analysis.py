@@ -466,16 +466,17 @@ def analyse(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Nordic PPK2 CSV Power Analyser — up to 8 digital inputs",
+        description="Nordic PPK2 Power Analyser — supports .ppk2 (binary) and .csv (text export), up to 8 digital inputs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 scripts/ppk_analysis.py data/ppk-20260504T182249.csv
-  python3 scripts/ppk_analysis.py data/ppk-recording.csv --per-second
-  python3 scripts/ppk_analysis.py data/ppk-recording.csv --no-boot-exclusion
+  uv run scripts/ppk_analysis.py data/recording.ppk2
+  uv run scripts/ppk_analysis.py data/recording.csv
+  uv run scripts/ppk_analysis.py data/recording.ppk2 --per-second
+  uv run scripts/ppk_analysis.py data/recording.csv  --no-boot-exclusion
 """,
     )
-    parser.add_argument("csv", help="Path to PPK2 CSV export file")
+    parser.add_argument("input", help="Path to PPK2 recording (.ppk2 binary or .csv text export)")
     parser.add_argument(
         "--per-second", "-s",
         action="store_true",
@@ -487,6 +488,7 @@ Examples:
         help="Include boot phase in battery life estimate",
     )
     args = parser.parse_args()
+    args.csv = args.input  # internal alias used by analyse()
     analyse(args)
 
 
