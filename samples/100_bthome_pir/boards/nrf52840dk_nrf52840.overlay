@@ -10,7 +10,8 @@
 	pir_inputs: pir_inputs {
 		compatible = "gpio-keys";
 		pir0: pir_0 {
-			gpios = <&gpio0 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			/* gpios = <&gpio0 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; // SW1 on the DK for testing */
+			gpios = <&gpio0 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;     // P0.02, same as XIAO D0
 			label = "PIR Sensor";
 		};
 	};
