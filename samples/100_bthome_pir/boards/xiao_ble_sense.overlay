@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * BThome PIR overlay for Seeed XIAO nRF52840
+ * BThome PIR overlay for Seeed XIAO nRF52840 Sense
  *
+ * IMU            : LSM6DS3TR-C (internal) on i2c0 — SDA = P0.07, SCL = P0.27.
+ *                  Device node is already defined in xiao_ble_nrf52840_sense.dts.
  * PIR            : P0.02 (XIAO pin D0), active-high, pull-down.
  * BLE Tx indicator: P0.05 (XIAO pin D5 / i2c1 SCL).
  *                   i2c1 is disabled to free P0.05 as GPIO.
@@ -26,6 +28,7 @@
 	};
 
 	aliases {
+		imu              = &lsm6ds3tr_c;
 		pir-sensor       = &pir0;
 		active-indicator = &active0;
 	};

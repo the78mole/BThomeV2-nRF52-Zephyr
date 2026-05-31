@@ -2,10 +2,42 @@
 /*
  * BThome PIR overlay for nRF52840-DK
  *
- * PIR sensor signal pin → P0.12 (Button 1 / SW1 on the DK).
- * The built-in button is active-low with an external pull-up on the board.
- * Press the button to simulate a PIR trigger.
+ * PIR            : P0.02 (Edge connector P6 pin 5 / AIN0), active-low, pull-up.
+ * IMU            : MPU-6050 on i2c0 — SDA = P0.07, SCL = P0.27 (Arduino D15).
+ *                  Default i2c0 SDA (P0.26 / Arduino D14) is re-routed to P0.07.
+ * BLE Tx indicator: P0.05 (uart0 RTS — disable UART hardware flow control).
  */
+
+#include <zephyr/dt-bindings/pinctrl/nrf-pinctrl.h>
+
+/* ── Override i2c0 pinctrl (SDA: P0.26 → P0.07) ─────────────────────────── */
+&pinctrl {
+	i2c0_default: i2c0_default {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 7)>,
+			        <NRF_PSEL(TWIM_SCL, 0, 27)>;
+		};
+	};
+
+	i2c0_sleep: i2c0_sleep {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 7)>,
+			        <NRF_PSEL(TWIM_SCL, 0, 27)>;
+			low-power-enable;
+		};
+	};
+};
+
+/* ── MPU-6050 on i2c0 (arduino_i2c) ─────────────────────────────────────── */
+&arduino_i2c {
+	mpu6050: mpu6050@68 {
+		compatible = "invensense,mpu6050";
+		reg = <0x68>;
+		status = "okay";
+	};
+};
+
+/* ── PIR sensor + BLE Tx indicator ──────────────────────────────────────── */
 / {
 	pir_inputs: pir_inputs {
 		compatible = "gpio-keys";
@@ -16,7 +48,19 @@
 		};
 	};
 
+	/* P0.05: HIGH during BLE Tx, LOW otherwise.
+	 * P0.05 is also uart0 RTS — disable UART hardware flow control. */
+	active_ind: active_indicator {
+		compatible = "gpio-leds";
+		active0: active_0 {
+			gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+			label = "BLE Tx Indicator";
+		};
+	};
+
 	aliases {
-		pir-sensor = &pir0;
+		imu              = &mpu6050;
+		pir-sensor       = &pir0;
+		active-indicator = &active0;
 	};
 };

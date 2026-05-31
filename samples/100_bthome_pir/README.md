@@ -16,19 +16,53 @@ IDLE (motion=0, slow interval ~3 s)
 
 ## Supported Boards
 
-| Board | PIR GPIO | Overlay |
-|-------|----------|---------|
-| nRF52840-DK | P0.11 (Button 1 / SW1) | `boards/nrf52840dk_nrf52840.overlay` |
-| Seeed XIAO BLE | P0.02 (D0) | `boards/seeed_xiao_ble.overlay` |
+| Board | `BOARD=` | PIR GPIO | Overlay |
+|-------|----------|----------|---------|
+| nRF52840-DK | `nrf52840dk_nrf52840` | P0.11 (Button 1 / SW1) | `boards/nrf52840dk_nrf52840.overlay` |
+| Seeed XIAO nRF52840 | `xiao_ble` | P0.02 (D0) | `boards/xiao_ble.overlay` |
+| Seeed XIAO nRF52840 Sense | `xiao_ble_sense` | P0.02 (D0) | `boards/xiao_ble_sense.overlay` |
 
 ## Build & Flash
 
-```bash
-# nRF52840-DK (default)
-make 100-flash
+### nRF52840-DK
 
-# Seeed XIAO BLE
-make 100-flash BOARD=seeed_xiao_ble
+```bash
+# Build + Flash via J-Link
+make 100-flash
+```
+
+### Seeed XIAO nRF52840 / nRF52840 Sense
+
+Die XIAO-Boards verwenden den **Adafruit UF2-Bootloader**. Es gibt zwei Wege:
+
+#### Option A — UF2 Drag-and-Drop (kein zusätzliches Tool nötig)
+
+1. **Doppelklick auf RESET** am Board — die LED beginnt zu pulsen (Bootloader aktiv)
+2. Das Board erscheint als USB-Massenspeicher (z. B. `XIAO-SENSE` bzw. `XIAO-BLE`)
+3. UF2-Datei in das Laufwerk kopieren — das Board startet automatisch neu
+
+```bash
+# Build
+make 100-build BOARD=xiao_ble_sense
+
+# UF2-Datei liegt nach dem Build unter:
+#   build/zephyr/zephyr.uf2
+
+# Linux-Beispiel (Einhängepunkt anpassen):
+cp build/zephyr/zephyr.uf2 /media/$USER/XIAO-SENSE/
+```
+
+#### Option B — `make 100-flash` via adafruit-nrfutil
+
+```bash
+# Tool einmalig installieren:
+uv tool install adafruit-nrfutil
+
+# Board in DFU-Modus versetzen (Doppelklick RESET), dann:
+make 100-flash BOARD=xiao_ble_sense
+
+# Falls der DFU-Port nicht automatisch erkannt wird:
+make 100-flash BOARD=xiao_ble_sense XIAO_DFU_PORT=/dev/ttyACM1
 ```
 
 ## Verify with bthome-logger
