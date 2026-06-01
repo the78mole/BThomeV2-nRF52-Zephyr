@@ -45,19 +45,11 @@
 	status = "disabled";
 };
 
-/* ── Power-gate: QSPI-Flash (P0.25) ──────────────────────────────────────
- * The external P25Q16H flash has a dedicated power-rail enable on P0.25.
- * Drive it LOW at boot to cut ~100 µA leakage when QSPI is disabled. */
-&gpio0 {
-	pwr-flash {
-		gpio-hog;
-		gpios = <25 GPIO_ACTIVE_HIGH>;
-		output-low;
-		line-name = "QSPI Flash Power";
-	};
-};
-
 /* ── Power-gate: MIC PDM (P1.10) and IMU LSM6DS3 (P1.08) ────────────────
+ * NOTE: P0.25 = QSPI_CSN (aktiv-LOW) — NOT a power-rail enable!
+ * Hogging P0.25 LOW asserts chip-select permanently → ~600 µA drain.
+ * Flash Deep Power-Down (0xB9) is sent via GPIO bit-bang in main.c
+ * before the first bt_enable() call.
  * P1.10: dedicated VCC_MIC enable → LOW = mic powered off.
  * P1.08: controlled by the lsm6ds3tr-c-en regulator node (see below).
  *        No gpio-hog here to avoid double-ownership with the regulator. */

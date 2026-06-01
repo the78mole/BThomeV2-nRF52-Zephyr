@@ -45,10 +45,43 @@
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/hci.h>
 #include <zephyr/drivers/gpio.h>
+#include <hal/nrf_gpio.h>
 
 #include <bthome_v2/bthome_v2.h>
 
 LOG_MODULE_REGISTER(bthome_pir, LOG_LEVEL_INF);
+
+/* ── P25Q16H QSPI-Flash Deep Power-Down via GPIO Bit-Bang ────────────────
+ * P0.25 = QSPI_CSN (aktiv-LOW), P0.21 = SCK, P0.20 = IO0/MOSI
+ * Einmalig beim Start aufrufen, bevor bt_enable() den HFXO aktiviert.
+ * Danach bleibt der Flash in DPD bis zum nächsten Power-Cycle.
+ */
+#define FLASH_PIN_MOSI  20u
+#define FLASH_PIN_SCK   21u
+#define FLASH_PIN_CSN   25u
+#define FLASH_CMD_DPD   0xB9u
+
+static void flash_deep_power_down(void)
+{
+	nrf_gpio_cfg_output(FLASH_PIN_CSN);
+	nrf_gpio_cfg_output(FLASH_PIN_SCK);
+	nrf_gpio_cfg_output(FLASH_PIN_MOSI);
+
+	nrf_gpio_pin_set(FLASH_PIN_CSN);
+	nrf_gpio_pin_clear(FLASH_PIN_SCK);
+	nrf_gpio_pin_clear(FLASH_PIN_MOSI);
+
+	nrf_gpio_pin_clear(FLASH_PIN_CSN);  /* CS assertieren */
+
+	for (int i = 7; i >= 0; i--) {
+		nrf_gpio_pin_write(FLASH_PIN_MOSI, (FLASH_CMD_DPD >> i) & 1u);
+		nrf_gpio_pin_set(FLASH_PIN_SCK);
+		nrf_gpio_pin_clear(FLASH_PIN_SCK);
+	}
+
+	nrf_gpio_pin_set(FLASH_PIN_CSN);    /* CS deassertieren → DPD aktiv */
+	k_busy_wait(10u);                   /* t_enter_dpd = 3 µs min */
+}
 
 /* ── Timing ──────────────────────────────────────────────────────────────── */
 /** Duration in ms for which motion=1 burst advertising is active. */
@@ -136,14 +169,18 @@ int main(void)
 
 	LOG_INF("BThome PIR starting");
 
+	/* ── Flash in Deep Power-Down versetzen (vor bt_enable) ─────────── */
+	flash_deep_power_down();
+
 	/* ── GPIO init ──────────────────────────────────────────────────── */
 	if (!gpio_is_ready_dt(&pir)) {
 		LOG_ERR("PIR GPIO not ready");
 		return -ENODEV;
 	}
 	gpio_pin_configure_dt(&pir, GPIO_INPUT);
-
-	/* DIAGNOSTIC: no GPIO interrupt, plain input only. */
+	gpio_init_callback(&pir_cb_data, pir_isr, BIT(pir.pin));
+	gpio_add_callback_dt(&pir, &pir_cb_data);
+	/* Interrupt wird erst nach der initialen Werbephase scharf gestellt */
 
 #if HAS_LED_TX
 	if (gpio_is_ready_dt(&led_tx)) {
@@ -181,20 +218,16 @@ int main(void)
 
 	/* ── Main loop ──────────────────────────────────────────────────── */
 	while (true) {
-		/*
-		 * DIAGNOSTIC: poll PIR every 250 ms during the sleep window.
-		 * Exactly the approach used by sample 020 (which reaches ~10 µA).
-		 * If this build also stays at ~1 mA, the issue is not in the
-		 * GPIO interrupt path — look elsewhere.
+		/* PIR-Interrupt scharf stellen, dann CPU schlafen legen.
+		 * GPIO_INT_LEVEL_ACTIVE feuert solange PIR HIGH ist; die ISR
+		 * disarmt sich sofort selbst (GPIO_INT_DISABLE), damit der
+		 * PORT-Event nicht dauerhaft neu ausgelöst wird.
+		 * k_event_wait() gibt die CPU an den Idle-Thread → WFI.
 		 */
-		bool motion = false;
-		for (uint32_t t = 0; t < ADV_SLOW_INTERVAL_MS; t += 250U) {
-			k_sleep(K_MSEC(250));
-			if (gpio_pin_get_dt(&pir) > 0) {
-				motion = true;
-				break;
-			}
-		}
+		gpio_pin_interrupt_configure_dt(&pir, GPIO_INT_LEVEL_ACTIVE);
+		uint32_t evts = k_event_wait(&pir_evt, EVENT_PIR, true,
+					     K_MSEC(ADV_SLOW_INTERVAL_MS));
+		bool motion = (evts & EVENT_PIR) != 0;
 
 #if HAS_LED_TX
 		gpio_pin_set_dt(&led_tx, 1);

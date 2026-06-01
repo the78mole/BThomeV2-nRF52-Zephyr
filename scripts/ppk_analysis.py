@@ -187,10 +187,27 @@ def find_high_intervals(timestamps: np.ndarray, channel: np.ndarray):
     return intervals
 
 
-def detect_boot_end_idx(channels):
+def detect_boot_end_idx(channels, currents=None, settle_threshold_uA=None,
+                         settle_window_ms=500.0, dt_avg_ms=0.01,
+                         consecutive_windows=2):
     """
-    Boot phase = t[0] … first falling edge (1→0) on any digital channel.
-    Returns the sample index just after the first pulse has ended, or None.
+    Boot phase = t[0] … first falling edge (1→0) on any digital channel,
+    PLUS any post-pulse settling period where the current is still elevated.
+
+    After the first D0 falling edge the firmware may still have BLE/UART
+    activity for 1–2 s (e.g. initial bt_disable() overhead).  That transient
+    skews the steady-state average upward.  We advance the boot-end forward
+    in settle_window_ms steps until *consecutive_windows* successive windows
+    all stay below settle_threshold_uA.
+
+    settle_threshold_uA=None:  auto-compute as mean(currents) of the full
+                                recording — adapts to any power level.
+    consecutive_windows:        number of consecutive windows that must be
+                                below the threshold before settling is declared
+                                (default 2 × 500 ms = 1 s hysteresis —
+                                suitable for BLE devices advertising ≥ 1/s).
+
+    Returns the sample index just after the settled phase, or None.
     """
     first_fall = None
     for ch_data in channels:
@@ -200,6 +217,32 @@ def detect_boot_end_idx(channels):
             f = int(falling[0])
             if first_fall is None or f < first_fall:
                 first_fall = f
+    if first_fall is None:
+        return None
+
+    # If no current data provided, return as before (first falling edge only).
+    if currents is None:
+        return first_fall
+
+    # Auto-threshold: mean of the entire recording (adapts to any power level).
+    threshold = settle_threshold_uA if settle_threshold_uA is not None \
+        else float(np.mean(currents))
+
+    win = max(1, int(round(settle_window_ms / dt_avg_ms)))
+    n = len(currents)
+    idx = first_fall
+    ok_count = 0  # consecutive windows below threshold
+    while idx + win <= n:
+        window_avg = float(np.mean(currents[idx: idx + win]))
+        if window_avg <= threshold:
+            ok_count += 1
+            if ok_count >= consecutive_windows:
+                # rewind to the start of the first good window
+                return idx - (consecutive_windows - 1) * win
+        else:
+            ok_count = 0
+        idx += win
+    # Never found enough consecutive good windows — fall back to first_fall.
     return first_fall
 
 
@@ -362,11 +405,19 @@ def analyse(args):
     # ── Boot detection ───────────────────────────────────────────────────────
     boot_end_idx = None
     if active_chs and not args.no_boot_exclusion:
-        boot_end_idx = detect_boot_end_idx(channels)
+        boot_end_idx = detect_boot_end_idx(
+            channels, currents=currents,
+            settle_threshold_uA=args.settle_threshold,  # None = auto
+            dt_avg_ms=dt_avg_ms,
+        )
 
     if boot_end_idx is not None:
         boot_end_ms = int(timestamps[boot_end_idx])
-        print(f"  Boot phase : 0 – {boot_end_ms} ms  (excluded from battery estimates)")
+        boot_pct = 100.0 * boot_end_ms / t_total_ms
+        boot_warn = "  ⚠ >10 % — consider starting recording in the OFF/sleep state" \
+            if boot_pct > 10.0 else ""
+        print(f"  Boot phase : 0 – {boot_end_ms} ms  "
+              f"({boot_pct:.1f} % of recording; excluded from battery estimates){boot_warn}")
         ss_ts = timestamps[boot_end_idx:]
         ss_i  = currents[boot_end_idx:]
     else:
@@ -469,11 +520,23 @@ def main():
         description="Nordic PPK2 Power Analyser — supports .ppk2 (binary) and .csv (text export), up to 8 digital inputs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Best practices for accurate battery-life estimates
+──────────────────────────────────────────────────
+• Start the recording BEFORE powering the board so the boot transient
+  is fully captured and can be excluded from the steady-state average.
+• The boot phase (power-on burst + settling) should be at most 10 %% of
+  the total recording length.  A warning is printed when this is exceeded.
+• For low-power devices (≤50 µA average) record at least 60 s so that
+  periodic wakeups (BLE adv, RC calibration, keepalives) are fully averaged.
+• A D0 digital input connected to a GPIO on the board greatly improves
+  boot-end detection; without it the full recording is used for the average.
+
 Examples:
   uv run scripts/ppk_analysis.py data/recording.ppk2
   uv run scripts/ppk_analysis.py data/recording.csv
   uv run scripts/ppk_analysis.py data/recording.ppk2 --per-second
   uv run scripts/ppk_analysis.py data/recording.csv  --no-boot-exclusion
+  uv run scripts/ppk_analysis.py data/recording.ppk2 --settle-threshold 50
 """,
     )
     parser.add_argument("input", help="Path to PPK2 recording (.ppk2 binary or .csv text export)")
@@ -486,6 +549,18 @@ Examples:
         "--no-boot-exclusion",
         action="store_true",
         help="Include boot phase in battery life estimate",
+    )
+    parser.add_argument(
+        "--settle-threshold", "-t",
+        type=float,
+        default=None,
+        metavar="UA",
+        help=(
+            "Settle threshold in µA: boot phase ends when 2 consecutive "
+            "500 ms windows (= 1 s) stay below this value. "
+            "Default: mean(µA) of the entire recording (auto-adapts to any power level). "
+            "Example: --settle-threshold 50"
+        ),
     )
     args = parser.parse_args()
     args.csv = args.input  # internal alias used by analyse()
