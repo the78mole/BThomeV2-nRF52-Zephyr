@@ -1,0 +1,97 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * XIAO nRF52840 Sense — power baseline overlay
+ *
+ * Strategy: disable every onboard peripheral that the bare board's defconfig
+ * leaves enabled, and explicitly power-gate every active-high VCC line so we
+ * see only the SoC + LDO + LEDs + the BQ25101 charger quiescent current.
+ *
+ * Toggle individual nodes / hogs to characterise each peripheral's
+ * contribution to the idle floor.
+ */
+
+/ {
+	/* D5 (P0.05) — boot-done marker on the PPK2 logic channel. */
+	active_ind: active_indicator {
+		compatible = "gpio-leds";
+		active0: active_0 {
+			gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+			label = "Active Indicator";
+		};
+	};
+
+	aliases {
+		active-indicator = &active0;
+	};
+};
+
+/* ── Disable I2C buses (frees SDA/SCL pull-ups too) ────────────────────── */
+&i2c0 { status = "disabled"; };
+&i2c1 { status = "disabled"; };
+
+/* ── Disable QSPI peripheral ────────────────────────────────────────────────────
+ * The Zephyr nordic_qspi-nor driver is NOT used.  Deep Power-Down (0xB9)
+ * is sent manually via GPIO bit-bang in main.c before sys_poweroff().
+ * NOTE: P0.25 = QSPI_CSN (active-LOW chip-select) — do NOT hog it LOW!
+ * Hogging P0.25 LOW permanently asserts chip-select → ~600 µA drain.
+ */
+&qspi { status = "disabled"; };
+
+/* ── Disable PWM (board defconfig leaves PWM0 enabled for LED driver) ──── */
+&pwm0 { status = "disabled"; };
+
+/* ── Disable SPI ──────────────────────────────────────────────────────── */
+&spi2 { status = "disabled"; };
+
+/* ── Disable everything else from board common DTSI ─────────────────────
+ * uart0 (UARTE0): without driver no init, but be defensive.
+ * usbd          : USB peripheral; default-on in board DTSI.
+ * ieee802154    : 802.15.4 radio (shares RADIO with BLE).
+ * adc           : SAADC peripheral.
+ */
+&uart0      { status = "disabled"; };
+&usbd       { status = "disabled"; };
+&ieee802154 { status = "disabled"; };
+&adc        { status = "disabled"; };
+
+/* ── Disable NFCT peripheral node (saves the IRQ allocation; the actual
+ *    pin switch is done via CONFIG_NFCT_PINS_AS_GPIOS → UICR.NFCPINS).
+ */
+&nfct       { status = "disabled"; };
+
+/* ── IMU regulator: disable entirely; hog the enable pin below instead ──
+ * The board DTSI defines `lsm6ds3tr-c-en` as `regulator-fixed-sync` (an
+ * NCS extension).  The standard `regulator-fixed` driver may not bind to
+ * the -sync compatible, in which case P1.08 is left unconfigured at
+ * reset (input with internal pull-up disabled) — and the IMU VCC pin
+ * floats high enough through its own pull-up to keep the chip partially
+ * powered.  A direct GPIO hog is unambiguous.
+ */
+&{/lsm6ds3tr-c-en} {
+	status = "disabled";
+};
+
+/* ── Power-gates ─────────────────────────────────────────────────────────
+ * Drive VCC-enable lines LOW with GPIO hogs at boot.
+ * P0.25 is QSPI_CSN (active-LOW chip-select) — do NOT hog it!
+ * Hogging P0.25 LOW would permanently assert chip-select on the P25Q16H
+ * and cause ~600 µA drain.  Flash Deep Power-Down (0xB9) is sent via
+ * GPIO bit-bang in main.c before sys_poweroff().
+ *   P1.10 — MIC PDM VCC (MSM261D3526H1)
+ *   P1.08 — LSM6DS3TR-C IMU VCC
+ */
+
+&gpio1 {
+	pwr-mic {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "MIC Power";
+	};
+	pwr-imu {
+		gpio-hog;
+		gpios = <8 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "IMU Power";
+	};
+};

@@ -1,0 +1,14 @@
+mainmenu "XIAO Power Baseline Test"
+
+source "Kconfig.zephyr"
+
+config APP_SYSTEM_OFF
+	bool "Enter System OFF instead of System ON idle"
+	default n
+	select POWEROFF
+	help
+	  If enabled, the application calls sys_poweroff() after the boot
+	  marker pulse instead of k_sleep(K_FOREVER).  System OFF turns
+	  off CPU, RAM (except retained), all peripherals and all clocks.
+	  Whatever current remains is purely hardware (LEDs, BQ25101,
+	  external pull-ups, board leakage).

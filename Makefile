@@ -45,6 +45,10 @@ XIAO_DFU_PORT ?= $(or \
         "$(_DFU_VIDPID_$(BOARD))" 2>/dev/null), \
     /dev/ttyACM0)
 
+# Fixed serial port for -serial-flash targets (skips auto-detection).
+# Override on the command line: make 099-sysoff-serial-flash SERIAL_PORT=/dev/ttyACM1
+SERIAL_PORT ?= /dev/ttyACM3
+
 WEST   := west
 BUILD  := build
 
@@ -61,6 +65,7 @@ _IS_XIAO := $(filter $(BOARD),$(XIAO_BOARDS))
 SAMPLE_000 := samples/000_blinky
 SAMPLE_010 := samples/010_bthome-tut1
 SAMPLE_020 := samples/020_bthome_tut2
+SAMPLE_099 := samples/099_xiao_power_tests
 SAMPLE_100 := samples/100_bthome_pir
 
 # ---------------------------------------------------------------------------
@@ -158,6 +163,40 @@ _uf2_copy:
 	rm -rf $(BUILD)
 
 # ---------------------------------------------------------------------------
+# 099 — xiao_power_tests (idle-floor baseline)
+# ---------------------------------------------------------------------------
+.PHONY: 099-build
+099-build:
+	$(call build_sample,$(SAMPLE_099))
+
+.PHONY: 099-flash
+099-flash:
+	$(call flash_sample,$(SAMPLE_099))
+
+# Hardware-floor diagnostic build: calls sys_poweroff() instead of k_sleep().
+# In System OFF, CPU + RAM (except retained) + all peripherals + all clocks
+# are physically off.  Whatever current still flows is pure board hardware
+# (LEDs, charger quiescent, external pull-ups, leakage).
+.PHONY: 099-sysoff-build
+099-sysoff-build:
+	$(WEST) build -p always -b $(BOARD) $(SAMPLE_099) -- -DCONFIG_APP_SYSTEM_OFF=y
+
+.PHONY: 099-sysoff-flash
+099-sysoff-flash: 099-sysoff-build
+	$(if $(_IS_XIAO),$(MAKE) _uf2_copy,$(WEST) flash)
+
+# Flash via a fixed serial port — skips VID:PID auto-detection.
+# Useful when the auto-detect fails or multiple XIAO boards are connected.
+# Default port: /dev/ttyACM3  (override: make 099-sysoff-serial-flash SERIAL_PORT=/dev/ttyACM1)
+.PHONY: 099-sysoff-serial-flash
+099-sysoff-serial-flash: 099-sysoff-build
+	$(MAKE) _uf2_copy XIAO_DFU_PORT=$(SERIAL_PORT)
+
+.PHONY: 099-clean
+099-clean:
+	rm -rf $(BUILD)
+
+# ---------------------------------------------------------------------------
 # 100 — bthome_pir
 # ---------------------------------------------------------------------------
 .PHONY: 100-build
@@ -176,7 +215,7 @@ _uf2_copy:
 # Aggregate targets
 # ---------------------------------------------------------------------------
 .PHONY: all-build
-all-build: 000-build 010-build 020-build 100-build
+all-build: 000-build 010-build 020-build 099-build 100-build
 
 .PHONY: clean
 clean:

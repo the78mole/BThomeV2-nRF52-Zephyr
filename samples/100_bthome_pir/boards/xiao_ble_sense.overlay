@@ -38,3 +38,49 @@
 &i2c1 {
 	status = "disabled";
 };
+
+/* Disable QSPI flash peripheral — nrfx_qspi_init() holds HFCLK permanently
+ * even when no data is transferred (~200 µA at idle). */
+&qspi {
+	status = "disabled";
+};
+
+/* ── Power-gate: QSPI-Flash (P0.25) ──────────────────────────────────────
+ * The external P25Q16H flash has a dedicated power-rail enable on P0.25.
+ * Drive it LOW at boot to cut ~100 µA leakage when QSPI is disabled. */
+&gpio0 {
+	pwr-flash {
+		gpio-hog;
+		gpios = <25 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "QSPI Flash Power";
+	};
+};
+
+/* ── Power-gate: MIC PDM (P1.10) and IMU LSM6DS3 (P1.08) ────────────────
+ * P1.10: dedicated VCC_MIC enable → LOW = mic powered off.
+ * P1.08: controlled by the lsm6ds3tr-c-en regulator node (see below).
+ *        No gpio-hog here to avoid double-ownership with the regulator. */
+&gpio1 {
+	pwr-mic {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "MIC Power";
+	};
+};
+
+/* ── IMU regulator: remove regulator-boot-on ─────────────────────────────
+ * Without boot-on the regulator_fixed driver configures P1.08 as
+ * GPIO_OUTPUT_INACTIVE (= LOW for ACTIVE_HIGH) → LSM6DS3 powered off.
+ * i2c0 is disabled so no sensor driver ever requests the regulator. */
+&{/lsm6ds3tr-c-en} {
+	/delete-property/ regulator-boot-on;
+};
+
+/* Disable i2c0 (IMU bus, P0.07=SDA, P0.27=SCL) — not needed in this sample.
+ * Also ensures lsm6dsl driver cannot probe and request the regulator. */
+&i2c0 {
+	status = "disabled";
+};
+
