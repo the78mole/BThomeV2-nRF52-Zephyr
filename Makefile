@@ -70,6 +70,7 @@ _IS_XIAO := $(filter $(BOARD),$(XIAO_BOARDS))
 SAMPLE_000 := samples/000_blinky
 SAMPLE_010 := samples/010_bthome-tut1
 SAMPLE_020 := samples/020_bthome_tut2
+SAMPLE_098 := samples/098_test_32khz
 SAMPLE_099 := samples/099_xiao_power_tests
 SAMPLE_100 := samples/100_bthome_pir
 
@@ -187,6 +188,25 @@ _uf2_copy:
 
 .PHONY: 020-clean
 020-clean:
+	rm -rf $(BUILD)
+
+# ---------------------------------------------------------------------------
+# 098 — test_32khz (32 kHz clock source diagnostic)
+# ---------------------------------------------------------------------------
+.PHONY: 098-build
+098-build:
+	$(call build_sample,$(SAMPLE_098))
+
+.PHONY: 098-flash
+098-flash:
+	$(call flash_sample,$(SAMPLE_098))
+
+.PHONY: 098-serial-flash
+098-serial-flash:
+	$(call serial_flash_sample,$(SAMPLE_098))
+
+.PHONY: 098-clean
+098-clean:
 	rm -rf $(BUILD)
 
 # ---------------------------------------------------------------------------

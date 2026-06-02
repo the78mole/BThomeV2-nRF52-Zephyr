@@ -1,0 +1,20 @@
+# XIAO nRF52840 / Sense — XTAL source
+#
+# ⚠ WARNUNG: Nur verwenden wenn ein 32.768 kHz Quarz bestückt ist!
+# Wenn kein Quarz vorhanden ist, wartet das System beim Boot ewig auf
+# LFCLKSTARTED → das Board hängt und erscheint tot.
+#
+# Zum Aktivieren: dieses File nach boards/xiao_ble_sense.conf kopieren
+# und das Original sichern.
+CONFIG_CLOCK_CONTROL_NRF_K32SRC_XTAL=y
+CONFIG_CLOCK_CONTROL_NRF_K32SRC_20PPM=y  # 20 ppm XTAL
+
+# USB serial console
+CONFIG_USB_DEVICE_STACK=y
+CONFIG_USB_CDC_ACM=y
+CONFIG_UART_CONSOLE=y
+CONFIG_CONSOLE=y
+CONFIG_LOG=y
+CONFIG_LOG_MODE_IMMEDIATE=y
+
+CONFIG_NFCT_PINS_AS_GPIOS=y

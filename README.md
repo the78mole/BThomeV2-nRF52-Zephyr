@@ -27,7 +27,9 @@ Reference Arduino library: <https://github.com/the78mole/bthomev2>
 │
 └── samples/
     ├── 000_blinky/                 # LED blink: 100 ms ON / 900 ms OFF
-    └── 010_bthome-tut1/            # Die-temp + 6-axis IMU + PIR → BThome V2 ADV
+    ├── 010_bthome-tut1/            # Die-temp + 6-axis IMU + PIR → BThome V2 ADV
+    ├── 020_bthome_tut2/            # Wie 010, ergänzt BLE-Burst + Deep Sleep (Power-Managed)    ├── 098_test_32khz/             # 32 kHz-Quarz-Diagnose: LFCLK-Quelle + Frequenzmessung    ├── 099_xiao_power_tests/       # XIAO Leistungs-Baseline: WFI + Flash-DPD + System OFF (~11 µA)
+    └── 100_bthome_pir/             # BThome PIR-Sensor: ereignisbasiert, System ON (~15 µA WFI)
 ```
 
 ---
@@ -48,24 +50,47 @@ west update
 | # | Verzeichnis | Beschreibung |
 |---|-------------|--------------|
 | 000 | [`samples/000_blinky`](samples/000_blinky) | Minimales Blinky: LED1 blinkt 100 ms / 900 ms — Smoke-Test für Toolchain und Flash-Workflow |
-| 010 | [`samples/010_bthome-tut1`](samples/010_bthome-tut1) | Vollständiger BThome-V2-Node: interne Die-Temperatur, 6-Achsen-IMU (MPU-6050 / LSM6DS3) und PIR-Bewegungssensor im BLE-Advertisement |
-| 020 | [`samples/020_bthome_tut2`](samples/020_bthome_tut2) | Erweiterung von 010 um Power-Management: Sensoren und BLE werden nur bei Bewegung aktiv, ansonsten Tiefschlaf |
+| 010 | [`samples/010_bthome-tut1`](samples/010_bthome-tut1) | BThome-V2-Node: interne Die-Temperatur, 6-Achsen-IMU (MPU-6050 / LSM6DS3) und PIR-Bewegungssensor im BLE-Advertisement |
+| 020 | [`samples/020_bthome_tut2`](samples/020_bthome_tut2) | Wie 010, ergänzt BLE-Burst-Advertising + Deep Sleep: BLE 3 s aktiv / 27 s WFI via `bt_disable()` |
+| 098 | [`samples/098_test_32khz`](samples/098_test_32khz) | 32 kHz-Quarz-Diagnose: liest `CLOCK.LFCLKSTAT` und misst effektive LFCLK-Frequenz über 5 × 1 s — zeigt ob RC oder XTAL läuft |
+| 099 | [`samples/099_xiao_power_tests`](samples/099_xiao_power_tests) | XIAO Leistungs-Baseline: Boot-Marker auf D5, QSPI-Flash-DPD per GPIO-Bitbang, danach `sys_poweroff()` (System OFF) — misst Hardware-Stromaufnahme-Boden (~44 µA) |
+| 100 | [`samples/100_bthome_pir`](samples/100_bthome_pir) | BThome PIR-Sensor: GPIO-Interrupt-getrieben, BLE-Burst bei Bewegung (50 ms Intervall, 2 s), danach zurück auf 3 s Slow-Advertising; WFI-Schlaf im Idle (~15 µA) |
 ---
 
 ### Build & Flash
 
+Alle Samples können über das Makefile gebaut und geflasht werden.  
+`BOARD` ist optional (Standard: `xiao_ble_sense`), `SERIAL_PORT` ist optional (Standard: `/dev/ttyACM3`).
+
 ```bash
-# Blinky – nRF52840-DK
-west build -b nrf52840dk_nrf52840 samples/000_blinky && west flash
+# Blinky — nRF52840-DK via J-Link
+make 000-build BOARD=nrf52840dk_nrf52840
+make 000-flash  BOARD=nrf52840dk_nrf52840
 
-# Blinky – Seeed XIAO nRF52840
-west build -b seeed_xiao_ble_nrf52840 samples/000_blinky && west flash
+# Blinky — XIAO nRF52840 Sense via UF2 / Serial DFU
+make 000-serial-flash BOARD=xiao_ble_sense SERIAL_PORT=/dev/ttyACM0
 
-# Full BThome node – nRF52840-DK (MPU-6050 on Arduino I2C header)
-west build -b nrf52840dk_nrf52840 samples/010_bthome-tut1 && west flash
+# BThome Tutorial 1 — nRF52840-DK
+make 010-build BOARD=nrf52840dk_nrf52840
+make 010-flash  BOARD=nrf52840dk_nrf52840
 
-# Full BThome node – Seeed XIAO nRF52840 Sense (LSM6DS3 built-in)
-west build -b seeed_xiao_ble_nrf52840 samples/010_bthome-tut1 && west flash
+# BThome Tutorial 1 — XIAO Sense
+make 010-serial-flash
+
+# BThome Tutorial 2 (Power-Managed) — XIAO Sense
+make 020-serial-flash
+
+# 32 kHz Clock-Source-Diagnose — RC-Variante (sicher, immer booten)
+make 098-serial-flash
+
+# XIAO Power Baseline (WFI, kein System OFF)
+make 099-serial-flash
+
+# XIAO Power Baseline (System OFF + Flash-DPD)
+make 099-serial-flash
+
+# BThome PIR (ereignisbasiert, System ON WFI)
+make 100-serial-flash
 ```
 
 ### Verify BThome V2 Advertisements
