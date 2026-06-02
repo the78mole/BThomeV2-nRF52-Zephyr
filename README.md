@@ -55,6 +55,7 @@ west update
 | 098 | [`samples/098_test_32khz`](samples/098_test_32khz) | 32 kHz-Quarz-Diagnose: liest `CLOCK.LFCLKSTAT` und misst effektive LFCLK-Frequenz über 5 × 1 s — zeigt ob RC oder XTAL läuft |
 | 099 | [`samples/099_xiao_power_tests`](samples/099_xiao_power_tests) | XIAO Leistungs-Baseline: Boot-Marker auf D5, QSPI-Flash-DPD per GPIO-Bitbang, danach `sys_poweroff()` (System OFF) — misst Hardware-Stromaufnahme-Boden (~44 µA) |
 | 100 | [`samples/100_bthome_pir`](samples/100_bthome_pir) | BThome PIR-Sensor: GPIO-Interrupt-getrieben, BLE-Burst bei Bewegung (50 ms Intervall, 2 s), danach zurück auf 3 s Slow-Advertising; WFI-Schlaf im Idle (~15 µA) |
+| 200 | [`samples/200_bthome_imu`](samples/200_bthome_imu) | BThome IMU-Sensor: 6-Achsen-LSM6DS3TR-C, Accel X/Y/Z + Gyro-Betrag |ω| alle 5 s; `bt_disable()` + PM_SUSPEND im Schlaf — **107 µA Steady-State, ~89 Tage CR2032** |
 ---
 
 ### Build & Flash
@@ -91,6 +92,10 @@ make 099-serial-flash
 
 # BThome PIR (ereignisbasiert, System ON WFI)
 make 100-serial-flash
+
+# BThome IMU (Accel + Gyro, Low-Power ~107 µA)
+make 200-build
+make 200-serial-flash
 ```
 
 ### Verify BThome V2 Advertisements
