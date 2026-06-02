@@ -6,3 +6,44 @@
 		imu0 = &lsm6ds3tr_c;
 	};
 };
+
+/* ── QSPI-Flash: Peripheral deaktivieren ────────────────────────────────────
+ * nrfx_qspi_init() hält HFCLK permanent (~200 µA im Leerlauf).
+ * Bit-Bang DPD (0xB9) wird in main.c vor bt_enable() gesendet.
+ * Der Flash bleibt danach in Deep Power-Down bis zum nächsten Power-Cycle. */
+&qspi {
+	status = "disabled";
+};
+
+/* ── Active Indicator: P0.05 (XIAO D5 / i2c1 SCL) ──────────────────────────────────
+ * HIGH während des BLE-ADV-Fensters, LOW im Schlaf.
+ * i2c1 (P0.04=SDA, P0.05=SCL) muss deaktiviert werden, um P0.05 als GPIO zu nutzen. */
+&i2c1 {
+	status = "disabled";
+};
+
+/ {
+	active_ind: active_indicator {
+		compatible = "gpio-leds";
+		active0: active_0 {
+			gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+			label = "BLE Tx Indicator";
+		};
+	};
+
+	aliases {
+		active-indicator = &active0;
+	};
+};
+
+/* ── Mikrofon-Versorgung abschalten (P1.10) ──────────────────────────────────────────
+ * P1.10 = VCC_MIC Enable (active-HIGH). LOW = Mikrofon ausgeschaltet.
+ * gpio-hog setzt den Pin beim Boot auf LOW → Mikrofon bleibt dauerhaft aus. */
+&gpio1 {
+	pwr-mic {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "MIC Power";
+	};
+};

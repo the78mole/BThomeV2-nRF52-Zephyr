@@ -293,7 +293,7 @@ def sep(char="─", width=COL_W):
 def hr_duration(hours):
     """Convert decimal hours to a human-readable string."""
     if hours >= 24 * 365:
-        return f"{hours / (24 * 365):.1f} years"
+        return f"{hours / (24 * 365):.1f} years  ({hours / 24:.0f} days)"
     if hours >= 24:
         return f"{hours / 24:.1f} days  ({hours:.0f} h)"
     return f"{hours:.1f} h"

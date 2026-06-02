@@ -38,7 +38,9 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/hci.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/sensor.h>
+#include <zephyr/pm/device.h>
 #include <hal/nrf_gpio.h>
 #include <math.h>
 
@@ -95,6 +97,15 @@ static const struct device *const imu = DEVICE_DT_GET(DT_ALIAS(imu0));
 #else
 #define HAS_IMU 0
 #warning "kein imu0-Alias definiert – Sensor-Ausgabe wird simuliert"
+#endif
+
+/* ── Active Indicator (P0.05 = D5): HIGH während BLE aktiv ─────────────── */
+#if DT_NODE_HAS_STATUS(DT_ALIAS(active_indicator), okay)
+static const struct gpio_dt_spec led_tx =
+	GPIO_DT_SPEC_GET(DT_ALIAS(active_indicator), gpios);
+#define HAS_LED_TX 1
+#else
+#define HAS_LED_TX 0
 #endif
 
 /* ── Timing ────────────────────────────────────────────────────────────── */
@@ -221,6 +232,13 @@ int main(void)
 	ad[0] = (struct bt_data) BT_DATA_BYTES(BT_DATA_FLAGS,
 			BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR);
 
+	/* Active Indicator initialisieren (P0.05 = D5, active-high, initial LOW) */
+#if HAS_LED_TX
+	if (gpio_is_ready_dt(&led_tx)) {
+		gpio_pin_configure_dt(&led_tx, GPIO_OUTPUT_INACTIVE);
+	}
+#endif
+
 	/* Bluetooth einmalig aktivieren */
 	int ret = bt_enable(NULL);
 
@@ -230,7 +248,23 @@ int main(void)
 	}
 	LOG_INF("Bluetooth bereit");
 
-	/* Hauptschleife: alle ~5 s messen und advertisen */
+	/*
+	 * Hauptschleife: alle ~5 s messen und advertisen
+	 *
+	 * Low-Power-Strategie:
+	 *   1. BLE nach dem ADV-Fenster mit bt_disable() vollständig abschalten
+	 *      → SoftDevice Controller + HFXO gehen aus → spart ~2.5 mA
+	 *   2. IMU per PM in Power-Down versetzen (CTRL1_XL/CTRL2_G ODR=0)
+	 *      → spart ~0.9 mA, ODR wird beim Resume automatisch wiederhergestellt
+	 *   3. TICKLESS_KERNEL lässt den nRF52840 während k_sleep() in
+	 *      System Idle (WFE) verweilen → nur ~3 µA SoC-Strom
+	 *
+	 * Stromverbrauch (geschätzt, XIAO BLE Sense):
+	 *   ADV-Phase (1 s):   ~6 mA  (BLE TX + IMU aktiv)
+	 *   Schlaf-Phase (4 s): ~45 µA (HW-Floor: Charge-IC + LDO)
+	 *   Mittlerer Strom:   ~1.4 mA → CR2032 ~7 Tage
+	 *                             → 2× AA ~75 Tage
+	 */
 	while (true) {
 		int32_t ax = 0, ay = 0, az = 0;
 		uint16_t gx = 0, gy = 0, gz = 0, gmag = 0;
@@ -265,15 +299,70 @@ int main(void)
 		}
 #endif
 
+		/* Active Indicator HIGH: BLE-Fenster beginnt */
+#if HAS_LED_TX
+		gpio_pin_set_dt(&led_tx, 1);
+#endif
+
 		adv_send(ax, ay, az, gmag);
 
 		/* Advertising-Fenster */
 		k_sleep(K_MSEC(ADV_BURST_MS));
 
-		bt_le_adv_stop();
+		/* ── Schlafphase: alle Verbraucher abschalten ── */
 
-		/* Schlafphase: HFCLK wird freigegeben */
+		/* bt_le_adv_stop() muss VOR bt_disable() gerufen werden.
+		 * Bei Fehler wird trotzdem weitergemacht – bt_disable() räumt auf. */
+		ret = bt_le_adv_stop();
+		if (ret && ret != -EALREADY) {
+			LOG_WRN("bt_le_adv_stop: %d", ret);
+		}
+
+		/* IMU in Hardware-Power-Down (ODR → 0, ~6 µA Ruhestrom) */
+#if HAS_IMU
+		ret = pm_device_action_run(imu, PM_DEVICE_ACTION_SUSPEND);
+		if (ret && ret != -ENOTSUP && ret != -EALREADY) {
+			LOG_WRN("IMU SUSPEND: %d", ret);
+		}
+#endif
+
+		/* Active Indicator LOW: BLE-Fenster abgeschlossen */
+#if HAS_LED_TX
+		gpio_pin_set_dt(&led_tx, 0);
+#endif
+
+		/* BLE-Stack + HFXO vollständig abschalten (~2.5 mA gespart).
+		 * bt_disable() gibt HFCLK frei; MPSL bleibt initialisiert
+		 * (kein BT_UNINIT_MPSL_ON_DISABLE!) → RC-Kalibrierung läuft korrekt. */
+		ret = bt_disable();
+		if (ret) {
+			LOG_ERR("bt_disable: %d – sleep skipped", ret);
+			/* HFXO nicht freigegeben → nicht schlafen, sofort neu starten */
+			goto wake_up;
+		}
+
+		/* nRF52840 schläft tickless (WFE) → ~3 µA SoC-Strom */
 		k_sleep(K_MSEC(SLEEP_MS));
+
+wake_up:
+		/* ── Aufwecken: Verbraucher wieder einschalten ── */
+
+		/* BLE neu initialisieren (~100–300 ms HFXO-Startzeit einkalkuliert) */
+		ret = bt_enable(NULL);
+		if (ret) {
+			LOG_ERR("bt_enable (loop): %d", ret);
+			/* Ohne BLE weiter laufen – nächste Iteration versucht es erneut */
+		}
+
+		/* IMU aufwecken: Treiber stellt gespeicherten ODR wieder her */
+#if HAS_IMU
+		ret = pm_device_action_run(imu, PM_DEVICE_ACTION_RESUME);
+		if (ret && ret != -ENOTSUP && ret != -EALREADY) {
+			LOG_WRN("IMU RESUME: %d", ret);
+		}
+		/* 10 ms warten: sicherer als 2 ms (1/ODR bei 104 Hz = 9.6 ms) */
+		k_msleep(10);
+#endif
 	}
 
 	return 0;
