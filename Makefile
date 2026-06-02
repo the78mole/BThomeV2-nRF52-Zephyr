@@ -73,6 +73,7 @@ SAMPLE_020 := samples/020_bthome_tut2
 SAMPLE_098 := samples/098_test_32khz
 SAMPLE_099 := samples/099_xiao_power_tests
 SAMPLE_100 := samples/100_bthome_pir
+SAMPLE_200 := samples/200_bthome_imu
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -267,10 +268,29 @@ _uf2_copy:
 	rm -rf $(BUILD)
 
 # ---------------------------------------------------------------------------
+# 200 — bthome_imu
+# ---------------------------------------------------------------------------
+.PHONY: 200-build
+200-build:
+	$(call build_sample,$(SAMPLE_200))
+
+.PHONY: 200-flash
+200-flash:
+	$(call flash_sample,$(SAMPLE_200))
+
+.PHONY: 200-serial-flash
+200-serial-flash:
+	$(call serial_flash_sample,$(SAMPLE_200))
+
+.PHONY: 200-clean
+200-clean:
+	rm -rf $(BUILD)
+
+# ---------------------------------------------------------------------------
 # Aggregate targets
 # ---------------------------------------------------------------------------
 .PHONY: all-build
-all-build: 000-build 010-build 020-build 099-build 100-build
+all-build: 000-build 010-build 020-build 099-build 100-build 200-build
 
 .PHONY: clean
 clean:

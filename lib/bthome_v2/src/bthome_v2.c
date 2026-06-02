@@ -220,6 +220,12 @@ int bthome_v2_add_acceleration(struct bthome_v2_ctx *ctx, uint16_t milli_ms2)
 	return add_u16(ctx, BTHOME_OBJ_ACCELERATION, milli_ms2);
 }
 
+int bthome_v2_add_acceleration_axis(struct bthome_v2_ctx *ctx,
+				    int32_t micro_ms2)
+{
+	return add_u32(ctx, BTHOME_OBJ_ACCELERATION_AXIS, (uint32_t)micro_ms2);
+}
+
 int bthome_v2_add_gyroscope(struct bthome_v2_ctx *ctx, uint16_t milli_degs)
 {
 	return add_u16(ctx, BTHOME_OBJ_GYROSCOPE, milli_degs);

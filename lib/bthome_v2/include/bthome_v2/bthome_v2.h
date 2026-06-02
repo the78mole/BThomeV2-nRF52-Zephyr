@@ -220,6 +220,12 @@ extern "C" {
 #define BTHOME_OBJ_PRECIPITATION    0x5FU
 /** Channel number, uint8 */
 #define BTHOME_OBJ_CHANNEL          0x60U
+/**
+ * Acceleration axis, sint32, factor 0.000001, unit: m/s²
+ * Use one entry per axis (X, Y, Z).  Raw value = acceleration_m_s2 × 1 000 000
+ * Example: -3.123456 m/s² → raw = -3 123 456 (0xFFD05700 LE)
+ */
+#define BTHOME_OBJ_ACCELERATION_AXIS 0x63U
 /** Count, uint16 */
 #define BTHOME_OBJ_COUNT_UI16       0x3DU
 /** Count, uint32 */
@@ -385,6 +391,17 @@ int bthome_v2_add_dew_point(struct bthome_v2_ctx *ctx, int16_t temp_cdegc);
  * @param milli_ms2 Acceleration in mm/s² (e.g. 9810 = 9.810 m/s²).
  */
 int bthome_v2_add_acceleration(struct bthome_v2_ctx *ctx, uint16_t milli_ms2);
+
+/**
+ * @brief Add a single acceleration axis (sint32, factor 0.000001 m/s², object 0x63).
+ *
+ * Call once per axis (X, Y, Z).  Three consecutive calls produce three
+ * independent 0x63 objects that a BThome decoder receives as separate values.
+ *
+ * @param micro_ms2  Acceleration in micro-m/s² (val1 × 1 000 000 + val2 from
+ *                   Zephyr sensor_value).  Example: −3 123 456 = −3.123456 m/s².
+ */
+int bthome_v2_add_acceleration_axis(struct bthome_v2_ctx *ctx, int32_t micro_ms2);
 
 /**
  * @brief Add gyroscope reading (uint16, factor 0.001 °/s, object ID 0x52).
