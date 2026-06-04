@@ -104,7 +104,7 @@ endef
 # Use for NNN-serial-flash targets or when auto-detection is unreliable.
 define serial_flash_sample
 	$(WEST) build -p always -b $(BOARD) $(1)
-	$(MAKE) _uf2_copy XIAO_DFU_PORT=$(SERIAL_PORT)
+	$(MAKE) _uf2_copy XIAO_DFU_PORT=$(_FLASH_PORT)
 endef
 
 # Flash XIAO via adafruit-nrfutil DFU over USB serial.
@@ -356,7 +356,7 @@ help:
 	@echo "  make list-serial-monitor Show only running-firmware ports"
 	@echo ""
 	@echo "  BOARD=$(BOARD)"
-	@echo "   nRF52840-DK:  BOARD=nrf52840dk_nrf52840  (uses west flash / J-Link)"
+	@echo "   nRF52840-DK:  BOARD=nrf52840dk_nrf52840   (uses west flash / J-Link)"
 	@echo "   XIAO plain:   BOARD=xiao_ble              (copies zephyr.uf2 via UF2)"
 	@echo "   XIAO Sense:   BOARD=xiao_ble_sense        (copies zephyr.uf2 via UF2)"
 	@echo ""
