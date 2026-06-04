@@ -9,23 +9,23 @@ als BThome-V2-Payload. Optimiert für Batteriebetrieb mit `bt_disable()` /
 
 | Obj-ID | Property          | Datentyp | Faktor    | Einheit | Anzahl |
 |--------|-------------------|----------|-----------|---------|--------|
-| `0x63` | acceleration axis | sint32   | 0.000001  | m/s²    | 3 (X/Y/Z) |
-| `0x52` | gyroscope         | uint16   | 0.001     | °/s     | 1 (|ω| Betrag) |
 | `0x00` | packet id         | uint8    | —         | —       | 1      |
+| `0x52` | gyroscope         | uint16   | 0.001     | °/s     | 1 (|ω| Betrag) |
+| `0x63` | acceleration axis | sint32   | 0.000001  | m/s²    | 3 (X/Y/Z) |
 
 ### Encoding-Beispiel
-
-`0x63` Beschleunigung -3.123456 m/s²:
-```
-63 00 57 D0 FF
-│  └─────────── sint32 LE: 0xFFD05700 = -3 123 456 → × 0.000001 = -3.123456 m/s²
-└─ Object ID
-```
 
 `0x52` Gyroskop-Betrag 22.151 °/s:
 ```
 52 87 56
 │  └──── uint16 LE: 0x5687 = 22151 → × 0.001 = 22.151 °/s
+└─ Object ID
+```
+
+`0x63` Beschleunigung -3.123456 m/s²:
+```
+63 00 57 D0 FF
+│  └─────────── sint32 LE: 0xFFD05700 = -3 123 456 → × 0.000001 = -3.123456 m/s²
 └─ Object ID
 ```
 
@@ -37,10 +37,10 @@ BTHOME_V2_SVC_DATA_MAX_LEN = 26 B
   verfügbar für Objekte                  = 23 B
 
 pkt_id   0x00  1+1 =  2 B
+gyro_mag 0x52  1+2 =  3 B
 accel_x  0x63  1+4 =  5 B
 accel_y  0x63  1+4 =  5 B
 accel_z  0x63  1+4 =  5 B
-gyro_mag 0x52  1+2 =  3 B
                       ────
                      20 B ✓  (3 B Reserve)
 ```

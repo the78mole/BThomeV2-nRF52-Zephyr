@@ -8,17 +8,17 @@
  * nRF52840 Sense und sendet Beschleunigung (X/Y/Z) und Gyroskop (Z)
  * alle 5 Sekunden als BThome-V2-Advertising.
  *
- * BThome-Objekte:
- *   0x63  Acceleration axis   sint32   factor 0.000001  m/s²  (3×)
- *   0x52  Gyroscope           uint16   factor 0.001     °/s   (1×, Z-Achse)
+ * BThome-Objekte (in aufsteigender ID-Reihenfolge, Spec-Anforderung):
  *   0x00  Packet ID           uint8
+ *   0x52  Gyroscope           uint16   factor 0.001     °/s   (1×, |ω| Betrag)
+ *   0x63  Acceleration axis   sint32   factor 0.000001  m/s²  (3×, X/Y/Z)
  *
  * Nutzlast-Budget (23 Byte max ohne Name im ADV):
  *   0x00  pkt_id   : 2 B
+ *   0x52  gyro_mag : 3 B
  *   0x63  accel_x  : 5 B
  *   0x63  accel_y  : 5 B
- *   0x63  accel_z  : 5 B
- *   0x52  gyro_z   : 3 B    Gesamt: 20 B ✓
+ *   0x63  accel_z  : 5 B    Gesamt: 20 B ✓
  *
  * Takt:
  *   IMU aktiv → fetch → encode → ADV 1 s → ADV stoppen → sleep 4 s
@@ -192,11 +192,11 @@ static void adv_send(int32_t ax, int32_t ay, int32_t az, uint16_t gz)
 	bt_le_adv_stop();
 
 	bthome_v2_clear(&bthome);
-	bthome_v2_add_packet_id(&bthome, pkt_id++);
-	bthome_v2_add_acceleration_axis(&bthome, ax);
-	bthome_v2_add_acceleration_axis(&bthome, ay);
-	bthome_v2_add_acceleration_axis(&bthome, az);
-	bthome_v2_add_gyroscope(&bthome, gz);
+	bthome_v2_add_packet_id(&bthome, pkt_id++);    /* 0x00 */
+	bthome_v2_add_gyroscope(&bthome, gz);          /* 0x52 */
+	bthome_v2_add_acceleration_axis(&bthome, ax);  /* 0x63 */
+	bthome_v2_add_acceleration_axis(&bthome, ay);  /* 0x63 */
+	bthome_v2_add_acceleration_axis(&bthome, az);  /* 0x63 */
 	bthome_v2_encode(&bthome);
 	bthome_v2_get_bt_data(&bthome, &ad[1]);
 
@@ -260,10 +260,10 @@ int main(void)
 	 *      System Idle (WFE) verweilen → nur ~3 µA SoC-Strom
 	 *
 	 * Stromverbrauch (geschätzt, XIAO BLE Sense):
-	 *   ADV-Phase (1 s):   ~6 mA  (BLE TX + IMU aktiv)
+	 *   ADV-Phase (1 s):    ~6 mA  (BLE TX + IMU aktiv)
 	 *   Schlaf-Phase (4 s): ~45 µA (HW-Floor: Charge-IC + LDO)
-	 *   Mittlerer Strom:   ~1.4 mA → CR2032 ~7 Tage
-	 *                             → 2× AA ~75 Tage
+	 *   Mittlerer Strom:    ~1.4 mA → CR2032  ~7 Tage
+	 *                               → 2× AA  ~75 Tage
 	 */
 	while (true) {
 		int32_t ax = 0, ay = 0, az = 0;
