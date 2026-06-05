@@ -8,20 +8,21 @@
  * nRF52840 Sense und sendet Beschleunigung (X/Y/Z) und Gyroskop (Z)
  * alle 5 Sekunden als BThome-V2-Advertising.
  *
- * BThome-Objekte (in aufsteigender ID-Reihenfolge, Spec-Anforderung):
- *   0x00  Packet ID           uint8
- *   0x52  Gyroscope           uint16   factor 0.001     °/s   (1×, |ω| Betrag)
- *   0x63  Acceleration axis   sint32   factor 0.000001  m/s²  (3×, X/Y/Z)
+ * Zwei sequenzielle BThome-Pakete (je ADV_BURST_MS/2 = 500 ms):
+ *   Paket 1 — Objekte (ASC):
+ *     0x00  Packet ID           uint8              2 B
+ *     0x52  Gyroscope           uint16  0.001 °/s  3 B   Gesamt: 5 B
+ *   Paket 2 — Objekte (ASC):
+ *     0x00  Packet ID           uint8              2 B
+ *     0x63  Acceleration axis   sint32  0.000001 m/s²   (3×) 15 B  Gesamt: 17 B
  *
- * Nutzlast-Budget (23 Byte max ohne Name im ADV):
- *   0x00  pkt_id   : 2 B
- *   0x52  gyro_mag : 3 B
- *   0x63  accel_x  : 5 B
- *   0x63  accel_y  : 5 B
- *   0x63  accel_z  : 5 B    Gesamt: 20 B ✓
+ * Hintergrund: Ältere bthome-ble-Versionen in HA haben Probleme mit
+ * dreifachen 0x63-Einträgen im selben Paket. Splitting umgeht das Problem:
+ * HA legt das Gerät via Paket 1 (bekannte IDs) an, Paket 2 ergänzt die
+ * Accel-Entities. Beide Pakete werden über die MAC-Adresse verknüpft.
  *
  * Takt:
- *   IMU aktiv → fetch → encode → ADV 1 s → ADV stoppen → sleep 4 s
+ *   IMU aktiv → fetch → Paket 1 (500 ms) → Paket 2 (500 ms) → sleep 4 s
  *   Netto-Zykluszeit ≈ 5 s
  *
  * Sensor-Konvertierung:
@@ -123,7 +124,8 @@ static const struct bt_le_adv_param adv_param =
 			     ADV_INT, ADV_INT, NULL);
 
 /* ── BThome-Kontext ─────────────────────────────────────────────────────── */
-static struct bthome_v2_ctx bthome;
+static struct bthome_v2_ctx bthome;   /* Paket 1: pkt_id + gyroscope */
+static struct bthome_v2_ctx bthome2;  /* Paket 2: pkt_id + acceleration X/Y/Z */
 /* ad[0] = Flags, ad[1] = Service Data (kein Name im ADV → Scan Response) */
 static struct bt_data ad[2];
 
@@ -185,30 +187,51 @@ static uint16_t gyro_magnitude(uint16_t gx, uint16_t gy, uint16_t gz)
 }
 
 /* ── Advertising-Helfer ─────────────────────────────────────────────────── */
+/*
+ * Zwei sequenzielle BThome-Pakete je ADV_BURST_MS/2:
+ *   Paket 1: pkt_id + gyroscope  → HA kann Gerät sofort anlegen
+ *   Paket 2: pkt_id + accel X/Y/Z → Accel-Entities werden ergänzt
+ * HA assoziiert beide Pakete über die MAC-Adresse zum selben Gerät.
+ */
 static void adv_send(int32_t ax, int32_t ay, int32_t az, uint16_t gz)
 {
 	int err;
 
+	/* ── Paket 1: pkt_id + gyroscope (ADV_BURST_MS/2) ── */
 	bt_le_adv_stop();
-
 	bthome_v2_clear(&bthome);
 	bthome_v2_add_packet_id(&bthome, pkt_id++);    /* 0x00 */
 	bthome_v2_add_gyroscope(&bthome, gz);          /* 0x52 */
-	bthome_v2_add_acceleration_axis(&bthome, ax);  /* 0x63 */
-	bthome_v2_add_acceleration_axis(&bthome, ay);  /* 0x63 */
-	bthome_v2_add_acceleration_axis(&bthome, az);  /* 0x63 */
 	bthome_v2_encode(&bthome);
 	bthome_v2_get_bt_data(&bthome, &ad[1]);
 
 	err = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad),
 			      sd, ARRAY_SIZE(sd));
 	if (err) {
-		LOG_ERR("bt_le_adv_start: %d", err);
+		LOG_ERR("bt_le_adv_start (gyro): %d", err);
+		return;
+	}
+	k_msleep(ADV_BURST_MS / 2U);
+	bt_le_adv_stop();
+
+	/* ── Paket 2: pkt_id + acceleration X/Y/Z (läuft bis main bt_le_adv_stop) ── */
+	bthome_v2_clear(&bthome2);
+	bthome_v2_add_packet_id(&bthome2, pkt_id++);    /* 0x00 */
+	bthome_v2_add_acceleration_axis(&bthome2, ax);  /* 0x63 */
+	bthome_v2_add_acceleration_axis(&bthome2, ay);  /* 0x63 */
+	bthome_v2_add_acceleration_axis(&bthome2, az);  /* 0x63 */
+	bthome_v2_encode(&bthome2);
+	bthome_v2_get_bt_data(&bthome2, &ad[1]);
+
+	err = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad),
+			      sd, ARRAY_SIZE(sd));
+	if (err) {
+		LOG_ERR("bt_le_adv_start (accel): %d", err);
 		return;
 	}
 
-	LOG_INF("ADV pkt=%u  ax=%d ay=%d az=%d µm/s²  gz=%u mdeg/s",
-		pkt_id - 1, ax, ay, az, gz);
+	LOG_INF("ADV pkt=%u/%u  ax=%d ay=%d az=%d µm/s²  gz=%u mdeg/s",
+		pkt_id - 2, pkt_id - 1, ax, ay, az, gz);
 }
 
 /* ── main ──────────────────────────────────────────────────────────────── */
@@ -228,7 +251,8 @@ int main(void)
 #endif
 
 	/* BThome-Kontext + Flags-AD */
-	bthome_v2_init(&bthome, false, false);
+	bthome_v2_init(&bthome,  false, false);
+	bthome_v2_init(&bthome2, false, false);
 	ad[0] = (struct bt_data) BT_DATA_BYTES(BT_DATA_FLAGS,
 			BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR);
 
@@ -306,8 +330,8 @@ int main(void)
 
 		adv_send(ax, ay, az, gmag);
 
-		/* Advertising-Fenster */
-		k_sleep(K_MSEC(ADV_BURST_MS));
+		/* Zweites Paket (accel) läuft für die zweite Hälfte des ADV-Fensters */
+		k_sleep(K_MSEC(ADV_BURST_MS / 2U));
 
 		/* ── Schlafphase: alle Verbraucher abschalten ── */
 
