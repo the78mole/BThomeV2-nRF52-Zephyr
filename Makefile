@@ -30,7 +30,9 @@ _MONITOR_VIDPID_xiao_ble_sense       := 2fe3:0100
 
 # DFU port: bootloader CDC port (double-tap RESET to activate)
 _DFU_VIDPID_xiao_ble                 := 2886:0045
-_DFU_VIDPID_xiao_ble_sense           := 2886:0046
+# XIAO nRF52840 Sense meldet sich im DFU-Bootloader mit derselben PID wie
+# das plain XIAO (0x0045), nicht mit 0x0046.
+_DFU_VIDPID_xiao_ble_sense           := 2886:0045
 
 # Auto-detect MONITOR_PORT based on board VID:PID (fallback: /dev/ttyACM0)
 MONITOR_PORT ?= $(or \
@@ -74,6 +76,7 @@ SAMPLE_098 := samples/098_test_32khz
 SAMPLE_099 := samples/099_xiao_power_tests
 SAMPLE_100 := samples/100_bthome_pir
 SAMPLE_200 := samples/200_bthome_imu
+SAMPLE_300 := samples/300_bthome_ext_adv
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -287,10 +290,29 @@ _uf2_copy:
 	rm -rf $(BUILD)
 
 # ---------------------------------------------------------------------------
+# 300 — bthome_ext_adv
+# ---------------------------------------------------------------------------
+.PHONY: 300-build
+300-build:
+	$(call build_sample,$(SAMPLE_300))
+
+.PHONY: 300-flash
+300-flash:
+	$(call flash_sample,$(SAMPLE_300))
+
+.PHONY: 300-serial-flash
+300-serial-flash:
+	$(call serial_flash_sample,$(SAMPLE_300))
+
+.PHONY: 300-clean
+300-clean:
+	rm -rf $(BUILD)
+
+# ---------------------------------------------------------------------------
 # Aggregate targets
 # ---------------------------------------------------------------------------
 .PHONY: all-build
-all-build: 000-build 010-build 020-build 099-build 100-build 200-build
+all-build: 000-build 010-build 020-build 099-build 100-build 200-build 300-build
 
 .PHONY: clean
 clean:
@@ -345,7 +367,11 @@ help:
 	@echo "  make 100-serial-flash    Incremental build + flash via SERIAL_PORT"
 	@echo "  make 100-clean           Remove build directory"
 	@echo ""
-	@echo "  make all-build           Build all samples sequentially"
+	@echo "  make 300-build           Pristine build of samples/300_bthome_ext_adv  (Ext Adv + PIR + ADC)"
+	@echo "  make 300-flash           Incremental build + flash"
+	@echo "  make 300-serial-flash    Incremental build + flash via SERIAL_PORT"
+	@echo "  make 300-clean           Remove build directory"
+	@echo ""
 	@echo "  make clean               Remove build directory"
 	@echo ""
 	@echo "  make monitor             Open serial monitor on $(MONITOR_PORT) @ $(MONITOR_BAUD) baud"

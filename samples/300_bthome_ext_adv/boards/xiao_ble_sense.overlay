@@ -1,0 +1,97 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * DTS-Overlay für Seeed XIAO nRF52840 Sense — 300_bthome_ext_adv
+ *
+ * Pins:
+ *   PIR          : P0.02 (XIAO D0), active-high, pull-down
+ *   VBAT-Enable  : P0.14 (XIAO A0/D0-Side), active-low  (Spannungsteiler)
+ *   VBAT-ADC     : P0.31 / AIN7
+ *   Measure-LED  : P0.03 (XIAO D1), HIGH während Messung
+ *   Active-LED   : P0.05 (XIAO D5), HIGH während BLE-Paket
+ */
+
+/ {
+	/* ── PIR Eingang ──────────────────────────────────────────────────── */
+	pir_inputs: pir_inputs {
+		compatible = "gpio-keys";
+		pir0: pir_0 {
+			gpios = <&gpio0 2 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+			label = "PIR Sensor";
+		};
+	};
+
+	/* ── VBAT-Spannungsteiler-Enable (P0.14, active-low) ─────────────── */
+	vbat_ctrl: vbat_ctrl {
+		compatible = "gpio-leds";
+		vbat0: vbat_0 {
+			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
+			label = "VBAT Enable";
+		};
+	};
+
+	/* ── Active Indicator P0.05 (D5) ─────────────────────────────────── */
+	active_ind: active_indicator {
+		compatible = "gpio-leds";
+		active0: active_0 {
+			gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+			label = "BLE Tx Indicator";
+		};
+	};
+
+	/* ── Measure Indicator P0.03 (D1) ────────────────────────────────── */
+	measure_ind: measure_indicator {
+		compatible = "gpio-leds";
+		measure0: measure_0 {
+			gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
+			label = "Measure Indicator";
+		};
+	};
+
+	/* ── ADC-Kanal für VBAT (P0.31 = AIN7) ───────────────────────────── */
+	zephyr,user {
+		io-channels = <&adc 7>;
+	};
+
+	aliases {
+		pir-sensor        = &pir0;
+		vbat-ctrl         = &vbat0;
+		active-indicator  = &active0;
+		measure-indicator = &measure0;
+	};
+};
+
+/* ── i2c1 deaktivieren (P0.04=SDA, P0.05=SCL) → P0.05 als GPIO ──────────── */
+&i2c1 {
+	status = "disabled";
+};
+
+/* ── QSPI-Flash Peripheral deaktivieren ──────────────────────────────────── */
+&qspi {
+	status = "disabled";
+};
+
+/* ── ADC konfigurieren ────────────────────────────────────────────────────── */
+&adc {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	channel@7 {
+		reg = <7>;
+		zephyr,gain = "ADC_GAIN_1_6";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40)>;
+		zephyr,input-positive = <NRF_SAADC_AIN7>;    /* P0.31 */
+		zephyr,resolution = <12>;
+	};
+};
+
+/* ── Mikrofon-Versorgung abschalten (P1.10) ─────────────────────────────── */
+&gpio1 {
+	pwr-mic {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "MIC Power";
+	};
+};
