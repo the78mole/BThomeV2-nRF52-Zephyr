@@ -524,9 +524,53 @@ def analyse(args):
         print(f"  Total energy during HIGH   : {total_energy:.6f} µAh  "
               f"= {total_energy * 3.3e-3:.6f} mWh")
 
+        # ── LOW-phase average (complement of HIGH within steady-state window) ──
+        ch_ss    = channels[ch][boot_end_idx:]
+        cur_ss   = currents[boot_end_idx:]
+        ts_ss    = timestamps[boot_end_idx:]
+        low_mask = ch_ss == 0
+        if low_mask.any():
+            low_avg      = float(np.mean(cur_ss[low_mask]))
+            low_samples  = int(np.sum(low_mask))
+            mean_dt_ms   = (ts_ss[-1] - ts_ss[0]) / max(len(ts_ss) - 1, 1)
+            low_dur_ms   = round(low_samples * mean_dt_ms)
+            print(f"  Average during D{ch}=LOW      : {low_avg:.2f} µA"
+                  f"  ({low_dur_ms:,} ms  {low_samples:,} samples)")
+        else:
+            print(f"  Average during D{ch}=LOW      : — (no LOW samples in steady-state)")
+
     # ── Per-second profile ───────────────────────────────────────────────────
     if args.per_second:
         per_second_profile(timestamps, currents, channels, active_chs)
+
+    # ── True idle current: ALL active DINs simultaneously LOW ────────────────
+    if active_chs:
+        cur_ss = currents[boot_end_idx:]
+        ts_ss  = timestamps[boot_end_idx:]
+        # Mask: every active channel must be LOW at the same time
+        idle_mask = np.ones(len(cur_ss), dtype=bool)
+        for ch in active_chs:
+            idle_mask &= (channels[ch][boot_end_idx:] == 0)
+
+        sep()
+        print("IDLE CURRENT  (all active DINs simultaneously LOW, boot excluded)")
+        sep()
+        ch_list = " & ".join(f"D{ch}=LOW" for ch in active_chs)
+        if idle_mask.any():
+            idle_avg    = float(np.mean(cur_ss[idle_mask]))
+            idle_peak   = float(np.max(cur_ss[idle_mask]))
+            idle_samp   = int(np.sum(idle_mask))
+            mean_dt_ms  = (ts_ss[-1] - ts_ss[0]) / max(len(ts_ss) - 1, 1)
+            idle_dur_ms = round(idle_samp * mean_dt_ms)
+            idle_frac   = idle_dur_ms / max(ts_ss[-1] - ts_ss[0], 1) * 100
+            print(f"  Condition : {ch_list}")
+            print(f"  Duration  : {idle_dur_ms:,} ms  ({idle_frac:.1f} % of steady-state)")
+            print(f"  Samples   : {idle_samp:,}")
+            print(f"  Average   :     {idle_avg:.2f} µA")
+            print(f"  Peak      :  {idle_peak:>8.2f} µA")
+        else:
+            print(f"  Condition : {ch_list}")
+            print("  — no samples found where all active channels are LOW")
 
     # ── Battery life estimate ────────────────────────────────────────────────
     sep()
