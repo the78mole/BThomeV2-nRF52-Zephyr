@@ -8,11 +8,11 @@
  *
  * Überblick
  * ---------
- * Sendet alle 10 Sekunden ein BThome-V2-Keep-Alive-Paket (Temp, VBAT,
+ * Sendet alle 7,5 Sekunden ein BThome-V2-Keep-Alive-Paket (Temp, VBAT,
  * VDD, VBUS-Status, No-Motion) via Extended Advertising (num_events=1).
  * Bei PIR-Bewegung: sofort 5 Pakete mit Motion=1 (gleiche Packet-ID →
  * Empfänger-Deduplizierung), dann 1 Paket No-Motion, Timer-Reset.
- * Alle 60 Sekunden werden ADC und Temperatur neu gemessen.
+ * Alle 6 Sendezyklen (= 60 s) werden ADC und Temperatur neu gemessen.
  *
  * State-Machine
  * -------------
@@ -53,11 +53,27 @@ LOG_MODULE_REGISTER(bthome_ext, LOG_LEVEL_INF);
  * Timing-Konstanten
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-/** Keep-Alive-Intervall: alle 10 Sekunden ein Paket senden. */
-#define SEND_INTERVAL_MS      10000U
+/** Keep-Alive-Intervall: alle 7,5 Sekunden ein Paket senden. */
+#define SEND_INTERVAL_MS      7500U
 
-/** Mess-Intervall: ADC + Chip-Temperatur alle 60 Sekunden aktualisieren. */
-#define MEASURE_INTERVAL_MS   60000U
+/** Messung alle N Sendezyklen: ADC + Chip-Temperatur aktualisieren.
+ * N MUSS eine Zweierpotenz (2^n) sein – die Prüfung nutzt eine AND-Maske
+ * statt Modulo: (count & (N-1)) == 0.
+ * 2^3 = 8 × 7,5 s = 60 s Mess-Intervall. */
+#define MEASURE_EVERY_N_SENDS 8U
+/** AND-Maske für die Mess-Intervall-Prüfung (= MEASURE_EVERY_N_SENDS - 1).
+ * Vorberechnet im Präprozessor; kein Laufzeit-Overhead. */
+#define MEASURE_SEND_MASK     (MEASURE_EVERY_N_SENDS - 1U)
+
+/* Compile-Time-Prüfung: MEASURE_EVERY_N_SENDS muss eine Zweierpotenz sein.
+ * Trick: (N & (N-1)) == 0 gilt genau dann wenn N eine Zweierpotenz ist. */
+BUILD_ASSERT((MEASURE_EVERY_N_SENDS & MEASURE_SEND_MASK) == 0U,
+	     "MEASURE_EVERY_N_SENDS muss eine Zweierpotenz sein (1,2,4,8,16,...)");
+
+/** Minimale Pulsbreite des Measure-Indikators (D1) in ms.
+ * Stellt sicher, dass der Puls auf dem PPK2 auch bei Echtzeit-Zoom sichtbar
+ * ist. Wird am Ende von do_measure() per k_busy_wait erreicht. */
+#define MEASURE_IND_MIN_MS    20U
 
 /** PIR-Motion-Burst: 5 Pakete mit gleicher Packet-ID. */
 #define MOTION_BURST_COUNT    5U
@@ -167,8 +183,10 @@ static K_SEM_DEFINE(wakeup_sem, 0, 1);
 /* Flags: welche Wakeup-Quelle hat den Semaphor gegeben? */
 #define FLAG_SEND_TIMER  BIT(0)  /* 10s Keep-Alive-Timer */
 #define FLAG_PIR         BIT(1)  /* PIR-Interrupt */
-#define FLAG_MEASURE     BIT(2)  /* 60s Mess-Timer */
-static ATOMIC_DEFINE(wakeup_flags, 3);
+static ATOMIC_DEFINE(wakeup_flags, 2);
+
+/** Zähler der Keep-Alive-Sendezyklen; Messung alle MEASURE_EVERY_N_SENDS. */
+static uint8_t send_count;
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Semaphor für Extended-Adv-Abschluss (.sent Callback)
@@ -223,20 +241,6 @@ static void send_timer_cb(struct k_timer *t)
 {
 	ARG_UNUSED(t);
 	atomic_set_bit(wakeup_flags, FLAG_SEND_TIMER);
-	k_sem_give(&wakeup_sem);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
- * 60s Mess-Timer (feuert zusätzlich zum Send-Timer)
- * ═══════════════════════════════════════════════════════════════════════════ */
-static struct k_timer measure_timer;
-
-static void measure_timer_cb(struct k_timer *t)
-{
-	ARG_UNUSED(t);
-	atomic_set_bit(wakeup_flags, FLAG_MEASURE);
-	/* Kein separater k_sem_give: MEASURE wird vom nächsten SEND-Zyklus
-	 * abgearbeitet, oder sofort wenn der Main-Thread gerade wartet. */
 	k_sem_give(&wakeup_sem);
 }
 
@@ -372,7 +376,10 @@ static void do_measure(void)
 	LOG_INF("Measure: vbat=%u mV  vdd=%u mV  temp=%d 0.01°C  vbus=%d",
 		cache.vbat_mv, cache.vdd_mv, cache.temp_cdegc,
 		(int)cache.vbus);
+
+	/* Mindest-Pulsbreite sicherstellen → sichtbar auf PPK2 */
 #if HAS_LED_MEAS
+	k_msleep(MEASURE_IND_MIN_MS);
 	gpio_pin_set_dt(&led_meas, 0);
 #endif
 }
@@ -540,12 +547,9 @@ int main(void)
 
 	/* ── Timer starten ──────────────────────────────────────────────── */
 	k_timer_init(&send_timer, send_timer_cb, NULL);
-	k_timer_init(&measure_timer, measure_timer_cb, NULL);
 
-	k_timer_start(&send_timer,   K_MSEC(SEND_INTERVAL_MS),
-				     K_MSEC(SEND_INTERVAL_MS));
-	k_timer_start(&measure_timer, K_MSEC(MEASURE_INTERVAL_MS),
-				      K_MSEC(MEASURE_INTERVAL_MS));
+	k_timer_start(&send_timer, K_MSEC(SEND_INTERVAL_MS),
+			       K_MSEC(SEND_INTERVAL_MS));
 
 	/* PIR-Interrupt aktivieren.
 	 * EDGE_TO_ACTIVE: fällt nur auf die steigende Flanke an.
@@ -562,11 +566,6 @@ int main(void)
 	while (true) {
 		/* CPU schläft im WFI-Modus bis ein Flag gesetzt wird */
 		k_sem_take(&wakeup_sem, K_FOREVER);
-
-		/* ── Messung nachholen, falls fällig ──────────────────────── */
-		if (atomic_test_and_clear_bit(wakeup_flags, FLAG_MEASURE)) {
-			do_measure();
-		}
 
 		/* ── PIR-Motion-Burst ─────────────────────────────────────── */
 		if (atomic_test_and_clear_bit(wakeup_flags, FLAG_PIR)) {
@@ -604,6 +603,11 @@ int main(void)
 
 		/* ── Keep-Alive senden ────────────────────────────────────── */
 		if (atomic_test_and_clear_bit(wakeup_flags, FLAG_SEND_TIMER)) {
+			/* Alle MEASURE_EVERY_N_SENDS Zyklen vor dem Senden messen.
+			 * AND-Maske statt Modulo (N ist Zweierpotenz): */
+			if ((++send_count & MEASURE_SEND_MASK) == 0U) {
+				do_measure();
+			}
 			adv_send_packet(false, pkt_id++);
 		}
 	}

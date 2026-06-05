@@ -290,28 +290,56 @@ def sep(char="─", width=COL_W):
     print(char * width)
 
 
-def hr_duration(hours):
-    """Convert decimal hours to a human-readable string."""
+# Column widths for battery table
+_W_LABEL = 22   # Battery label (longest entry is 19 chars)
+_W_CAP   =  4   # Capacity number field (right-aligned, max 4 digits, e.g. 2500)
+_W_RT_N1 =  5   # Runtime primary number  (right-aligned, e.g. " 11.5")
+_W_RT_U1 =  5   # Runtime primary unit    (left-aligned,  e.g. "years")
+_W_RT_N2 =  4   # Runtime secondary number (right-aligned, e.g. "4196")
+_W_RT_U2 =  4   # Runtime secondary unit   (left-aligned,  e.g. "days")
+# Total runtime string width: N1 + sp + U1 + "  (" + N2 + sp + U2 + ")" = 24
+_W_RT = _W_RT_N1 + 1 + _W_RT_U1 + 3 + _W_RT_N2 + 1 + _W_RT_U2 + 1
+
+
+def _fmt_runtime(hours: float) -> str:
+    """Convert decimal hours to a fixed-width string (always _W_RT chars).
+
+    Numbers are right-aligned, units left-aligned:
+        primary:   {n:>_W_RT_N1.1f} {unit:<_W_RT_U1}
+        secondary: ({n:>_W_RT_N2.0f} {unit:<_W_RT_U2})
+    """
+    n1w, u1w = _W_RT_N1, _W_RT_U1
+    n2w, u2w = _W_RT_N2, _W_RT_U2
+    blank2 = " " * (n2w + 1 + u2w + 3)   # filler when no secondary value
     if hours >= 24 * 365:
-        return f"{hours / (24 * 365):.1f} years  ({hours / 24:.0f} days)"
+        n1, n2 = hours / (24 * 365), hours / 24
+        return f"{n1:>{n1w}.1f} {'years':<{u1w}}  ({n2:>{n2w}.0f} {'days':<{u2w}})"
     if hours >= 24:
-        return f"{hours / 24:.1f} days  ({hours:.0f} h)"
-    return f"{hours:.1f} h"
+        n1 = hours / 24
+        return f"{n1:>{n1w}.1f} {'days':<{u1w}}  ({hours:>{n2w}.0f} {'h':<{u2w}})"
+    return     f"{hours:>{n1w}.1f} {'h':<{u1w}}  {blank2}"
 
 
 def battery_table(avg_uA):
     """Return formatted battery life table as a string."""
-    lines = []
-    lines.append(f"\n  {'Battery':28s} {'Capacity':>10s}   {'Estimated runtime':>22s}")
-    lines.append("  " + "─" * 66)
+    # separator width: 2-indent + label + 2-gap + cap-num + " mAh" + 3-gap + runtime
+    sep_w = 2 + _W_LABEL + 2 + _W_CAP + 4 + 3 + _W_RT
+    lines = [
+        f"\n  {'Battery':<{_W_LABEL}}  "
+        f"{'Capacity':>{_W_CAP + 4}}   "   # right-aligns header over "NNN mAh"
+        f"{'Estimated runtime':<{_W_RT}}",
+        "  " + "─" * sep_w,
+    ]
     for label, cap_mAh, note in BATTERIES:
         if avg_uA <= 0:
-            runtime_str = "∞"
+            rt_str = f"{'∞':>{_W_RT}s}"
         else:
-            hours = (cap_mAh * 1_000) / avg_uA   # µAh / µA = h
-            runtime_str = hr_duration(hours)
+            hours  = (cap_mAh * 1_000) / avg_uA   # µAh / µA = h
+            rt_str = _fmt_runtime(hours)
         lines.append(
-            f"  {label:28s} {cap_mAh:>7d} mAh   {runtime_str:>22s}  ({note})"
+            f"  {label:<{_W_LABEL}}  "
+            f"{cap_mAh:>{_W_CAP}d} {'mAh':<3}   "
+            f"{rt_str}  ({note})"
         )
     return "\n".join(lines)
 

@@ -86,8 +86,16 @@
 	};
 };
 
-/* ── Mikrofon-Versorgung abschalten (P1.10) ─────────────────────────────── */
+/* ── IMU- und Mikrofon-Versorgung abschalten ─────────────────────────────── */
+/* IMU LSM6DS3TR-C VCC: P1.08 → LOW schaltet Versorgung ab (~690 µA gespart) */
+/* MIC MSM261D3526H1 VCC: P1.10 → LOW schaltet Versorgung ab                 */
 &gpio1 {
+	pwr-imu {
+		gpio-hog;
+		gpios = <8 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "IMU Power";
+	};
 	pwr-mic {
 		gpio-hog;
 		gpios = <10 GPIO_ACTIVE_HIGH>;
